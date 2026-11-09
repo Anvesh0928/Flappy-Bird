@@ -8,22 +8,63 @@
 </head>
 <body>
   <div class="app-layout">
-    <section id="homeScreen" class="menu-screen">
+    <section id="homeScreen" class="menu-screen onboarding-screen">
       <div class="menu-brand">🌊</div><p class="eyebrow">OCEAN ARCADE</p>
       <h1>SUB-SEA<br/>GLIDER</h1>
-      <p class="menu-copy">Dive into the deep. Dodge the obstacles. Beat your best score.</p>
-      <button id="startGameBtn" class="menu-primary">START GAME</button>
-      <button id="howToPlayBtn" class="menu-secondary">HOW TO PLAY</button>
+      <p class="menu-copy">A tiny ocean. Endless adventure. Glide through the deep, dodge the gates and master every level.</p>
+      <div class="intro-highlights"><span>🐠 3 CREATURES</span><span>♾️ ENDLESS LEVELS</span><span>🌊 OCEAN ADVENTURE</span></div>
+      <button id="startGameBtn" class="menu-primary">LET'S DIVE IN</button>
+      <p class="screen-footnote">Your underwater adventure awaits</p>
     </section>
-    <section id="tutorialScreen" class="menu-screen hidden">
+
+    <section id="legalScreen" class="menu-screen hidden onboarding-screen legal-screen">
+      <p class="eyebrow">BEFORE YOU DIVE</p><h1>YOUR TRUST<br/>MATTERS</h1>
+      <p class="menu-copy">Please review and accept both documents to continue. This appears only on first launch, unless the documents change.</p>
+      <div class="legal-document">
+        <h3>🔒 Privacy Policy</h3>
+        <p>Game progress and preferences such as your best score and chosen character are stored on this device. If you choose to submit a leaderboard score, your player name and score may be sent to the game server. The Android app may show Google AdMob ads and use Google's consent tools where required. Ad providers may process data as described in their own privacy notices. You can play without submitting a leaderboard name.</p>
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy ↗</a>
+      </div>
+      <label class="legal-check"><input id="privacyAccept" type="checkbox"/><span>I have read and accept the Privacy Policy.</span></label>
+      <div class="legal-document">
+        <h3>📜 Terms &amp; Conditions</h3>
+        <p>Sub-Sea Glider is provided for personal entertainment. Do not misuse the app, interfere with its operation, or attempt to disrupt its services. Scores and leaderboard availability may vary if network services are unavailable. The game is provided as-is, without a guarantee of uninterrupted service. You may stop using the app at any time by uninstalling it.</p>
+      </div>
+      <label class="legal-check"><input id="termsAccept" type="checkbox"/><span>I agree to the Terms &amp; Conditions.</span></label>
+      <button id="acceptLegalBtn" class="menu-primary" disabled>ACCEPT &amp; CONTINUE</button>
+      <p class="screen-footnote">Both checkboxes are required to continue.</p>
+    </section>
+
+    <section id="characterScreen" class="menu-screen hidden onboarding-screen">
+      <p class="eyebrow">PICK YOUR COMPANION</p><h1>CHOOSE YOUR<br/>GLIDER</h1>
+      <p class="menu-copy">Choose a creature for your ocean run. You can change it before starting another run.</p>
+      <div class="character-options">
+        <button class="character-card selected" data-character="MANTA"><span>🐟</span><strong>MANTA RAY</strong><small>Agile ocean glider</small></button>
+        <button class="character-card" data-character="SUBMARINE"><span>🚤</span><strong>SUBMARINE</strong><small>Steady explorer</small></button>
+        <button class="character-card" data-character="SHARK"><span>🦈</span><strong>SHARK</strong><small>Fearless swimmer</small></button>
+      </div>
+      <button id="characterNextBtn" class="menu-primary">CONTINUE</button>
+      <button id="characterBackBtn" class="menu-secondary">BACK</button>
+    </section>
+
+    <section id="tutorialScreen" class="menu-screen hidden onboarding-screen">
       <div class="menu-brand">🐠</div><p class="eyebrow">QUICK GUIDE</p><h1>HOW TO PLAY</h1>
       <div class="tutorial-steps">
-        <p><strong>01 · TAP</strong><br/>Tap anywhere in the game to swim upward.</p>
-        <p><strong>02 · DODGE</strong><br/>Move through the gaps between the pipes.</p>
-        <p><strong>03 · SCORE</strong><br/>Each pipe you pass earns one point.</p>
+        <p><strong>01 · TAP TO SWIM</strong><br/>Tap anywhere in the game to move upward.</p>
+        <p><strong>02 · DODGE THE GATES</strong><br/>Pass safely through each obstacle gap.</p>
+        <p><strong>03 · LEVEL UP</strong><br/>Clear 10 gates to advance. Difficulty rises gradually.</p>
       </div>
-      <button id="tutorialPlayBtn" class="menu-primary">LET'S PLAY</button>
+      <button id="tutorialPlayBtn" class="menu-primary">CONTINUE</button>
       <button id="backToHomeBtn" class="menu-secondary">BACK</button>
+    </section>
+
+    <section id="readyScreen" class="menu-screen hidden onboarding-screen">
+      <div class="menu-brand" id="readyCharacter">🐟</div><p class="eyebrow">ALL SYSTEMS READY</p>
+      <h1>READY TO<br/>DIVE?</h1>
+      <p class="menu-copy">Your journey starts at Level 1. Take your time, find your rhythm and enjoy the deep.</p>
+      <div class="ready-level-card"><span>STARTING LEVEL</span><strong>1</strong><small>10 gates to advance</small></div>
+      <button id="launchGameBtn" class="menu-primary">START GAME</button>
+      <button id="readyBackBtn" class="menu-secondary">CHANGE GLIDER</button>
     </section>
     <div class="game-wrapper hidden" id="gameScreen">
       <!-- Top Bar -->
