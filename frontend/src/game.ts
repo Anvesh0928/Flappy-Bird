@@ -38,6 +38,9 @@ export class FlappyGame {
   private infoModal: HTMLElement | null;
   private playerNameInput: HTMLInputElement | null;
   private saveNameBtn: HTMLElement | null;
+  private homeScreen: HTMLElement;
+  private tutorialScreen: HTMLElement;
+  private gameScreen: HTMLElement;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -58,6 +61,14 @@ export class FlappyGame {
     this.infoModal = document.getElementById('infoModal');
     this.playerNameInput = document.getElementById('playerNameInput') as HTMLInputElement | null;
     this.saveNameBtn = document.getElementById('saveNameBtn');
+    this.homeScreen = document.getElementById('homeScreen')!;
+    this.tutorialScreen = document.getElementById('tutorialScreen')!;
+    this.gameScreen = document.getElementById('gameScreen')!;
+    document.getElementById('startGameBtn')?.addEventListener('click', () => this.startGame());
+    document.getElementById('howToPlayBtn')?.addEventListener('click', () => this.showScreen('tutorial'));
+    document.getElementById('tutorialPlayBtn')?.addEventListener('click', () => this.startGame());
+    document.getElementById('backToHomeBtn')?.addEventListener('click', () => this.showScreen('home'));
+    document.getElementById('homeFromGameOverBtn')?.addEventListener('click', () => this.showScreen('home'));
 
     this.loadBestScore();
     this.initEntities();
@@ -67,6 +78,17 @@ export class FlappyGame {
 
     // Start loop
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  private showScreen(screen: 'home' | 'tutorial' | 'game'): void {
+    this.homeScreen.classList.toggle('hidden', screen !== 'home');
+    this.tutorialScreen.classList.toggle('hidden', screen !== 'tutorial');
+    this.gameScreen.classList.toggle('hidden', screen !== 'game');
+  }
+
+  private startGame(): void {
+    this.showScreen('game');
+    this.resetGame();
   }
 
   /** Initialize or reset player fish */
@@ -135,7 +157,7 @@ export class FlappyGame {
     // Play again button
     this.playAgainBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.resetGame();
+      this.startGame();
     });
 
     // Sound toggle
