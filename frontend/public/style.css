@@ -510,3 +510,20 @@ kbd {
     font-size: 0.85rem;
   }
 }
+
+
+/* Mobile arcade menu and screen transitions */
+.menu-screen { width:100%; max-width:420px; min-height:min(78svh,680px); margin:auto; padding:42px 26px; border-radius:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:#f8fafc; background:radial-gradient(circle at 50% 24%,rgba(34,211,238,.24),transparent 38%),linear-gradient(160deg,#123c60,#071321 75%); border:1px solid rgba(125,211,252,.24); box-shadow:0 20px 55px rgba(0,0,0,.38); }
+.menu-screen.hidden { display:none; }
+.menu-brand { font-size:4rem; filter:drop-shadow(0 8px 18px rgba(34,211,238,.35)); }
+.eyebrow { margin-top:12px; color:#67e8f9; font-size:.72rem; font-weight:800; letter-spacing:.28em; }
+.menu-screen h1 { margin-top:10px; font-size:clamp(2.3rem,11vw,3.5rem); line-height:.98; font-weight:950; letter-spacing:.04em; text-shadow:0 5px 24px rgba(34,211,238,.2); }
+.menu-copy { max-width:270px; margin:20px 0 32px; color:#bfdbfe; line-height:1.55; }
+.menu-primary,.menu-secondary { width:100%; max-width:280px; min-height:52px; border:0; border-radius:14px; font-size:.95rem; font-weight:900; letter-spacing:.08em; cursor:pointer; }
+.menu-primary { color:#052033; background:linear-gradient(135deg,#67e8f9,#34d399); box-shadow:0 8px 24px rgba(45,212,191,.25); }
+.menu-secondary { margin-top:12px; color:#dbeafe; background:rgba(255,255,255,.08); border:1px solid rgba(191,219,254,.22); }
+.tutorial-steps { width:100%; max-width:290px; margin:28px 0; text-align:left; display:grid; gap:18px; }
+.tutorial-steps p { color:#bfdbfe; line-height:1.5; }
+.tutorial-steps strong { color:#67e8f9; letter-spacing:.08em; }
+.game-home-btn { width:170px; min-height:42px; margin-top:10px; }
+@media(max-width:600px) { body{padding:10px;align-items:center;} .app-layout{min-height:calc(100svh - 20px);display:flex;align-items:center;} .game-wrapper{margin:auto;} .menu-screen{min-height:min(82svh,700px);} }
