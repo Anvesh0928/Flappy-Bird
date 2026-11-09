@@ -103,7 +103,8 @@ export class FlappyGame {
       gravity: 0.28,
       swimForce: -6.2,
       rotation: 0,
-      finAngle: 0
+      finAngle: 0,
+      skin: 'MANTA'
     };
     this.pipes = [];
     this.swimParticles = [];
