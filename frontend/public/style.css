@@ -453,3 +453,55 @@ kbd {
   50% { transform: translateY(-5px); }
 }
 
+
+
+/* Compact phone layout for the native Android WebView host. */
+@media (max-width: 600px) {
+  body {
+    min-height: 100svh;
+    padding: 8px;
+    align-items: flex-start;
+  }
+
+  .app-layout {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .game-wrapper {
+    width: 100%;
+    max-width: 420px;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .canvas-container {
+    width: min(100%, calc((100svh - 150px) * 2 / 3));
+    max-height: calc(100svh - 150px);
+  }
+
+  .leaderboard-panel {
+    display: none;
+  }
+
+  .game-header {
+    gap: 6px;
+    padding: 5px 4px 8px;
+  }
+
+  .game-title {
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .game-footer {
+    margin-top: 8px;
+    gap: 8px;
+  }
+
+  .action-btn {
+    padding: 9px 8px;
+    font-size: 0.85rem;
+  }
+}
