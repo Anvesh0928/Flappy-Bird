@@ -59,6 +59,11 @@ export class FlappyGame {
   private homeScreen: HTMLElement;
   private tutorialScreen: HTMLElement;
   private gameScreen: HTMLElement;
+  private legalScreen: HTMLElement;
+  private characterScreen: HTMLElement;
+  private readyScreen: HTMLElement;
+  private selectedSkin: Fish['skin'] = 'MANTA';
+  private readonly legalVersion = '2026-11-v1';
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -82,10 +87,42 @@ export class FlappyGame {
     this.homeScreen = document.getElementById('homeScreen')!;
     this.tutorialScreen = document.getElementById('tutorialScreen')!;
     this.gameScreen = document.getElementById('gameScreen')!;
-    document.getElementById('startGameBtn')?.addEventListener('click', () => this.startGame());
-    document.getElementById('howToPlayBtn')?.addEventListener('click', () => this.showScreen('tutorial'));
-    document.getElementById('tutorialPlayBtn')?.addEventListener('click', () => this.startGame());
-    document.getElementById('backToHomeBtn')?.addEventListener('click', () => this.showScreen('home'));
+    this.legalScreen = document.getElementById('legalScreen')!;
+    this.characterScreen = document.getElementById('characterScreen')!;
+    this.readyScreen = document.getElementById('readyScreen')!;
+    document.getElementById('startGameBtn')?.addEventListener('click', () => {
+      const accepted = localStorage.getItem('subsea_legal_acceptance') === this.legalVersion;
+      this.showScreen(accepted ? 'character' : 'legal');
+    });
+    document.getElementById('acceptLegalBtn')?.addEventListener('click', () => {
+      const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
+      const terms = document.getElementById('termsAccept') as HTMLInputElement;
+      if (!privacy.checked || !terms.checked) return;
+      localStorage.setItem('subsea_legal_acceptance', this.legalVersion);
+      this.showScreen('character');
+    });
+    const updateLegalButton = () => {
+      const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
+      const terms = document.getElementById('termsAccept') as HTMLInputElement;
+      const button = document.getElementById('acceptLegalBtn') as HTMLButtonElement;
+      button.disabled = !(privacy.checked && terms.checked);
+    };
+    document.getElementById('privacyAccept')?.addEventListener('change', updateLegalButton);
+    document.getElementById('termsAccept')?.addEventListener('change', updateLegalButton);
+    document.querySelectorAll<HTMLButtonElement>('[data-character]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.selectedSkin = button.dataset.character as Fish['skin'];
+        document.querySelectorAll('[data-character]').forEach((item) => item.classList.toggle('selected', item === button));
+        const readyCharacter = document.getElementById('readyCharacter');
+        if (readyCharacter) readyCharacter.textContent = this.selectedSkin === 'MANTA' ? '🐟' : this.selectedSkin === 'SUBMARINE' ? '🚤' : '🦈';
+      });
+    });
+    document.getElementById('characterNextBtn')?.addEventListener('click', () => this.showScreen('tutorial'));
+    document.getElementById('characterBackBtn')?.addEventListener('click', () => this.showScreen('home'));
+    document.getElementById('tutorialPlayBtn')?.addEventListener('click', () => this.showScreen('ready'));
+    document.getElementById('backToHomeBtn')?.addEventListener('click', () => this.showScreen('character'));
+    document.getElementById('launchGameBtn')?.addEventListener('click', () => this.startGame());
+    document.getElementById('readyBackBtn')?.addEventListener('click', () => this.showScreen('character'));
     document.getElementById('homeFromGameOverBtn')?.addEventListener('click', () => this.showScreen('home'));
 
     this.loadBestScore();
@@ -98,9 +135,12 @@ export class FlappyGame {
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  private showScreen(screen: 'home' | 'tutorial' | 'game'): void {
+  private showScreen(screen: 'home' | 'legal' | 'character' | 'tutorial' | 'ready' | 'game'): void {
     this.homeScreen.classList.toggle('hidden', screen !== 'home');
+    this.legalScreen.classList.toggle('hidden', screen !== 'legal');
+    this.characterScreen.classList.toggle('hidden', screen !== 'character');
     this.tutorialScreen.classList.toggle('hidden', screen !== 'tutorial');
+    this.readyScreen.classList.toggle('hidden', screen !== 'ready');
     this.gameScreen.classList.toggle('hidden', screen !== 'game');
   }
 
@@ -122,7 +162,7 @@ export class FlappyGame {
       swimForce: this.getLevelTuning().swimForce,
       rotation: 0,
       finAngle: 0,
-      skin: 'MANTA'
+      skin: this.selectedSkin
     };
     this.pipes = [];
     this.swimParticles = [];
