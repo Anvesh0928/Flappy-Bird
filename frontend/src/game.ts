@@ -342,6 +342,9 @@ export class FlappyGame {
       if (!p.passed && p.x + p.width < this.fish.x) {
         p.passed = true;
         this.score++;
+        const nextTuning = this.getLevelTuning();
+        this.fish.gravity = nextTuning.gravity;
+        this.fish.swimForce = nextTuning.swimForce;
         this.sound.playScore();
         if (this.score > this.bestScore) {
           this.bestScore = this.score;
