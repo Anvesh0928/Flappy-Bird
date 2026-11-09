@@ -111,3 +111,10 @@ npm run watch
 4. **Human Maintainable**:
    - Minimal code, zero bloat, strict TypeScript types, and straightforward logic that any developer can easily understand and extend.
 
+
+
+## Android application
+
+A native Kotlin Android wrapper is available in `android/`. It packages the existing `frontend/public/` game files as local WebView assets, adds native UMP consent and a Google Mobile Ads Next-Gen test banner, and leaves the existing frontend/backend folders in place.
+
+See [android/README.md](android/README.md) for build instructions, AdMob configuration, and current backend limitations.

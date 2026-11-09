@@ -15,6 +15,24 @@ export class FlappyGame {
   private state: GameStatus = 'READY';
   private score: number = 0;
   private bestScore: number = 0;
+  private readonly obstaclesPerLevel = 10;
+
+  private get level(): number {
+    return Math.floor(this.score / this.obstaclesPerLevel) + 1;
+  }
+
+  /** Smooth, independent difficulty curves; early levels stay forgiving. */
+  private getLevelTuning() {
+    const early = Math.min(this.level - 1, 19);
+    const later = Math.max(0, this.level - 20);
+    return {
+      gravity: Math.min(0.42, 0.24 + early * 0.003 + later * 0.002),
+      swimForce: -Math.min(7.0, 5.6 + early * 0.012 + later * 0.008),
+      gap: Math.max(112, 182 - early * 0.6 - later * 0.8),
+      pipeSpeed: Math.min(3.4, 1.8 + early * 0.025 + later * 0.035),
+      spawnInterval: Math.max(75, Math.round(130 - early * 0.5 - later * 0.8))
+    };
+  }
   private frameCount: number = 0;
   private shakeTimer: number = 0;
 
@@ -38,6 +56,14 @@ export class FlappyGame {
   private infoModal: HTMLElement | null;
   private playerNameInput: HTMLInputElement | null;
   private saveNameBtn: HTMLElement | null;
+  private homeScreen: HTMLElement;
+  private tutorialScreen: HTMLElement;
+  private gameScreen: HTMLElement;
+  private legalScreen: HTMLElement;
+  private characterScreen: HTMLElement;
+  private readyScreen: HTMLElement;
+  private selectedSkin: Fish['skin'] = 'MANTA';
+  private readonly legalVersion = '2026-11-v1';
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -58,6 +84,46 @@ export class FlappyGame {
     this.infoModal = document.getElementById('infoModal');
     this.playerNameInput = document.getElementById('playerNameInput') as HTMLInputElement | null;
     this.saveNameBtn = document.getElementById('saveNameBtn');
+    this.homeScreen = document.getElementById('homeScreen')!;
+    this.tutorialScreen = document.getElementById('tutorialScreen')!;
+    this.gameScreen = document.getElementById('gameScreen')!;
+    this.legalScreen = document.getElementById('legalScreen')!;
+    this.characterScreen = document.getElementById('characterScreen')!;
+    this.readyScreen = document.getElementById('readyScreen')!;
+    document.getElementById('startGameBtn')?.addEventListener('click', () => {
+      const accepted = localStorage.getItem('subsea_legal_acceptance') === this.legalVersion;
+      this.showScreen(accepted ? 'character' : 'legal');
+    });
+    document.getElementById('acceptLegalBtn')?.addEventListener('click', () => {
+      const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
+      const terms = document.getElementById('termsAccept') as HTMLInputElement;
+      if (!privacy.checked || !terms.checked) return;
+      localStorage.setItem('subsea_legal_acceptance', this.legalVersion);
+      this.showScreen('character');
+    });
+    const updateLegalButton = () => {
+      const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
+      const terms = document.getElementById('termsAccept') as HTMLInputElement;
+      const button = document.getElementById('acceptLegalBtn') as HTMLButtonElement;
+      button.disabled = !(privacy.checked && terms.checked);
+    };
+    document.getElementById('privacyAccept')?.addEventListener('change', updateLegalButton);
+    document.getElementById('termsAccept')?.addEventListener('change', updateLegalButton);
+    document.querySelectorAll<HTMLButtonElement>('[data-character]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.selectedSkin = button.dataset.character as Fish['skin'];
+        document.querySelectorAll('[data-character]').forEach((item) => item.classList.toggle('selected', item === button));
+        const readyCharacter = document.getElementById('readyCharacter');
+        if (readyCharacter) readyCharacter.textContent = this.selectedSkin === 'MANTA' ? '🐟' : this.selectedSkin === 'SUBMARINE' ? '🚤' : '🦈';
+      });
+    });
+    document.getElementById('characterNextBtn')?.addEventListener('click', () => this.showScreen('tutorial'));
+    document.getElementById('characterBackBtn')?.addEventListener('click', () => this.showScreen('home'));
+    document.getElementById('tutorialPlayBtn')?.addEventListener('click', () => this.showScreen('ready'));
+    document.getElementById('backToHomeBtn')?.addEventListener('click', () => this.showScreen('character'));
+    document.getElementById('launchGameBtn')?.addEventListener('click', () => this.startGame());
+    document.getElementById('readyBackBtn')?.addEventListener('click', () => this.showScreen('character'));
+    document.getElementById('homeFromGameOverBtn')?.addEventListener('click', () => this.showScreen('home'));
 
     this.loadBestScore();
     this.initEntities();
@@ -69,6 +135,20 @@ export class FlappyGame {
     requestAnimationFrame((t) => this.loop(t));
   }
 
+  private showScreen(screen: 'home' | 'legal' | 'character' | 'tutorial' | 'ready' | 'game'): void {
+    this.homeScreen.classList.toggle('hidden', screen !== 'home');
+    this.legalScreen.classList.toggle('hidden', screen !== 'legal');
+    this.characterScreen.classList.toggle('hidden', screen !== 'character');
+    this.tutorialScreen.classList.toggle('hidden', screen !== 'tutorial');
+    this.readyScreen.classList.toggle('hidden', screen !== 'ready');
+    this.gameScreen.classList.toggle('hidden', screen !== 'game');
+  }
+
+  private startGame(): void {
+    this.showScreen('game');
+    this.resetGame();
+  }
+
   /** Initialize or reset player fish */
   private initEntities(): void {
     this.fish = {
@@ -78,10 +158,11 @@ export class FlappyGame {
       width: 38,
       height: 28,
       velocity: 0,
-      gravity: 0.28,
-      swimForce: -6.2,
+      gravity: this.getLevelTuning().gravity,
+      swimForce: this.getLevelTuning().swimForce,
       rotation: 0,
-      finAngle: 0
+      finAngle: 0,
+      skin: this.selectedSkin
     };
     this.pipes = [];
     this.swimParticles = [];
@@ -135,7 +216,7 @@ export class FlappyGame {
     // Play again button
     this.playAgainBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.resetGame();
+      this.startGame();
     });
 
     // Sound toggle
@@ -203,7 +284,7 @@ export class FlappyGame {
   /** Spawn pipe obstacle with purple tick markings */
   private spawnPipe(): void {
     const minHeight = 50;
-    const gap = 145;
+    const gap = this.getLevelTuning().gap;
     const groundHeight = 65;
     const maxTop = this.canvas.height - groundHeight - gap - minHeight;
     const topHeight = Math.floor(Math.random() * (maxTop - minHeight + 1)) + minHeight;
@@ -273,12 +354,13 @@ export class FlappyGame {
     this.fish.finAngle = Math.sin(this.frameCount * 0.3) * 0.4;
 
     // Spawn pipes periodically
-    if (this.frameCount % 95 === 0) {
+    const tuning = this.getLevelTuning();
+    if (this.frameCount % tuning.spawnInterval === 0) {
       this.spawnPipe();
     }
 
     // Update and check pipes
-    const pipeSpeed = 2.4;
+    const pipeSpeed = tuning.pipeSpeed;
     const groundLevel = this.canvas.height - 65;
 
     // Check boundary collisions
@@ -300,6 +382,9 @@ export class FlappyGame {
       if (!p.passed && p.x + p.width < this.fish.x) {
         p.passed = true;
         this.score++;
+        const nextTuning = this.getLevelTuning();
+        this.fish.gravity = nextTuning.gravity;
+        this.fish.swimForce = nextTuning.swimForce;
         this.sound.playScore();
         if (this.score > this.bestScore) {
           this.bestScore = this.score;
@@ -640,17 +725,23 @@ export class FlappyGame {
   private drawScoreHeader(): void {
     const ctx = this.ctx;
     ctx.save();
-    ctx.font = '900 42px "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
 
-    // Black stroke outline
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 6;
-    ctx.strokeText(this.score.toString(), this.canvas.width / 2, 58);
-
-    // Crisp white fill
+    // Level label and progress stay readable without covering the play area.
+    ctx.font = '800 15px "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = 'rgba(5, 20, 42, 0.78)';
+    ctx.beginPath();
+    ctx.roundRect(this.canvas.width / 2 - 78, 14, 156, 58, 12);
+    ctx.fill();
+    ctx.font = '800 13px "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#7ee7ff';
+    ctx.fillText(`LEVEL ${this.level}`, this.canvas.width / 2, 34);
+    ctx.font = '900 27px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(this.score.toString(), this.canvas.width / 2, 58);
+    ctx.fillText(this.score.toString(), this.canvas.width / 2, 62);
+    ctx.font = '700 10px "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#c7e8ff';
+    ctx.fillText(`${this.score % this.obstaclesPerLevel}/${this.obstaclesPerLevel} TO NEXT LEVEL`, this.canvas.width / 2, 84);
     ctx.restore();
   }
 
