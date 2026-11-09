@@ -476,9 +476,10 @@ kbd {
     border-radius: 14px;
   }
 
+  /* Let the game occupy the phone screen; secondary actions stay off-canvas. */
   .canvas-container {
-    width: min(100%, calc((100svh - 150px) * 2 / 3));
-    max-height: calc(100svh - 150px);
+    width: min(100%, calc((100svh - 88px) * 2 / 3));
+    max-height: calc(100svh - 88px);
   }
 
   .leaderboard-panel {
@@ -496,8 +497,12 @@ kbd {
   }
 
   .game-footer {
-    margin-top: 8px;
-    gap: 8px;
+    display: none;
+  }
+
+  /* The mobile build currently uses local scores; keep the end screen focused. */
+  .player-input-box {
+    display: none;
   }
 
   .action-btn {
