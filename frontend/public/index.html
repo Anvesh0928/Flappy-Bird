@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Underwater Flappy Adventure</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <div class="game-wrapper">
+      <!-- Top Bar -->
+      <header class="game-header">
+        <span class="game-title">🌊 Flappy Sub-Sea</span>
+        <div class="skin-selector" id="skinSelector">
+          <button class="skin-btn active" data-skin="MANTA" title="Manta Ray">🐟</button>
+          <button class="skin-btn" data-skin="SUBMARINE" title="Submarine">🚤</button>
+          <button class="skin-btn" data-skin="SHARK" title="Shark">🦈</button>
+        </div>
+        <button id="soundToggleBtn" class="icon-btn" title="Toggle Sound">🔊</button>
+      </header>
+
+      <!-- Main Canvas Screen -->
+      <div class="canvas-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <!-- Get Ready Overlay (matching video reference) -->
+        <div id="readyOverlay" class="game-overlay">
+          <h2 class="ready-title">Get Ready!</h2>
+          <div class="tap-guide">
+            <div class="arrow-indicator">▲</div>
+            <div class="tap-badge">TAP OR CLICK</div>
+          </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameOverOverlay" class="game-overlay hidden">
+          <h2 class="game-over-title">Game Over</h2>
+          <div class="score-card">
+            <div class="score-row">
+              <span>Score:</span>
+              <strong id="finalScore">0</strong>
+            </div>
+            <div class="score-row">
+              <span>Best:</span>
+              <strong id="bestScore">0</strong>
+            </div>
+          </div>
+
+          <div class="player-input-box">
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15" />
+            <button id="saveNameBtn" class="save-name-btn">Save</button>
+          </div>
+
+          <button id="playAgainBtn" class="overlay-action-btn">Play Again</button>
+        </div>
+      </div>
+
+      <!-- Action Footer (matching video layout) -->
+      <footer class="game-footer">
+        <button id="resetBtn" class="action-btn purple-btn">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          <span>Reset</span>
+        </button>
+
+        <button id="howItWorksBtn" class="action-btn dark-btn">How It Works</button>
+      </footer>
+    </div>
+
+    <!-- Leaderboard Sidebar (Connected to Python REST API) -->
+    <aside class="leaderboard-panel">
+      <div class="leaderboard-header">
+        <h3>🏆 Hall of Fame</h3>
+        <span class="badge">Live API</span>
+      </div>
+      <p class="panel-subtitle">Top scores saved on Python server</p>
+      <ul id="leaderboardList" class="leaderboard-list">
+        <!-- Dynamically populated from /api/scores -->
+        <li class="loading-item">Loading scores...</li>
+      </ul>
+    </aside>
+  </div>
+
+  <!-- How It Works Modal -->
+  <div id="infoModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3>🎮 How to Play</h3>
+      <ul>
+        <li><strong>Swim Up:</strong> Click, tap the screen, or press <kbd>Space</kbd> / <kbd>▲</kbd>.</li>
+        <li><strong>Dodge Pipes:</strong> Pass through the gaps in the metallic pipes.</li>
+        <li><strong>Score Points:</strong> Each cleared pipe awards 1 point.</li>
+        <li><strong>Stay Clear:</strong> Don't hit pipes or sink to the ocean floor!</li>
+      </ul>
+      <div class="modal-actions">
+        <button id="closeModalBtn" class="action-btn purple-btn">Got It!</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "underwater-flappy-frontend",
+  "version": "1.0.0",
+  "description": "Underwater Flappy Adventure Frontend with HTML, CSS, JS and TypeScript",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
+
