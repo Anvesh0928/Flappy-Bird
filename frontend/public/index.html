@@ -8,7 +8,24 @@
 </head>
 <body>
   <div class="app-layout">
-    <div class="game-wrapper">
+    <section id="homeScreen" class="menu-screen">
+      <div class="menu-brand">🌊</div><p class="eyebrow">OCEAN ARCADE</p>
+      <h1>SUB-SEA<br/>GLIDER</h1>
+      <p class="menu-copy">Dive into the deep. Dodge the obstacles. Beat your best score.</p>
+      <button id="startGameBtn" class="menu-primary">START GAME</button>
+      <button id="howToPlayBtn" class="menu-secondary">HOW TO PLAY</button>
+    </section>
+    <section id="tutorialScreen" class="menu-screen hidden">
+      <div class="menu-brand">🐠</div><p class="eyebrow">QUICK GUIDE</p><h1>HOW TO PLAY</h1>
+      <div class="tutorial-steps">
+        <p><strong>01 · TAP</strong><br/>Tap anywhere in the game to swim upward.</p>
+        <p><strong>02 · DODGE</strong><br/>Move through the gaps between the pipes.</p>
+        <p><strong>03 · SCORE</strong><br/>Each pipe you pass earns one point.</p>
+      </div>
+      <button id="tutorialPlayBtn" class="menu-primary">LET'S PLAY</button>
+      <button id="backToHomeBtn" class="menu-secondary">BACK</button>
+    </section>
+    <div class="game-wrapper hidden" id="gameScreen">
       <!-- Top Bar -->
       <header class="game-header">
         <span class="game-title">🌊 Flappy Sub-Sea</span>
@@ -52,7 +69,8 @@
             <button id="saveNameBtn" class="save-name-btn">Save</button>
           </div>
 
-          <button id="playAgainBtn" class="overlay-action-btn">Play Again</button>
+          <button id="playAgainBtn" class="overlay-action-btn">RESTART</button>
+          <button id="homeFromGameOverBtn" class="menu-secondary game-home-btn">HOME</button>
         </div>
       </div>
 
