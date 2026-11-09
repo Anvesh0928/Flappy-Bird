@@ -1,0 +1,19 @@
+{
+  "name": "Underwater Flappy Adventure",
+  "short_name": "Flappy Sea",
+  "description": "High-performance underwater Flappy Bird style game with real-time score tracking and leaderboard.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070e17",
+  "theme_color": "#0d1a2d",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

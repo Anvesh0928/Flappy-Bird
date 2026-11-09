@@ -11,13 +11,31 @@ export class SoundManager {
     // AudioContext will be initialized on first user interaction
   }
 
-  private initContext(): void {
+  public initContext(): void {
     if (!this.ctx) {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioContextClass();
+      if (AudioContextClass) {
+        this.ctx = new AudioContextClass();
+      }
     }
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
+    }
+  }
+
+  /** Unlock Web Audio on mobile touch gestures */
+  public unlockAudio(): void {
+    this.initContext();
+    if (this.ctx) {
+      try {
+        const buffer = this.ctx.createBuffer(1, 1, 22050);
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.ctx.destination);
+        source.start(0);
+      } catch {
+        // Safe fallback
+      }
     }
   }
 
@@ -126,4 +144,3 @@ export class SoundManager {
     });
   }
 }
-

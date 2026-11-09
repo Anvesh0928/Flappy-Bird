@@ -14,8 +14,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app import app
 import scores
+from config import SCORES_FILE
+
 
 class BackendApiTests(unittest.TestCase):
+    original_scores = None
+
+    @classmethod
+    def setUpClass(cls):
+        """Preserve original scores file content to keep tests clean and idempotent."""
+        if SCORES_FILE.exists():
+            try:
+                cls.original_scores = SCORES_FILE.read_text(encoding="utf-8")
+            except OSError:
+                cls.original_scores = None
+
+    @classmethod
+    def tearDownClass(cls):
+        """Restore original scores file content after test suite completes."""
+        if cls.original_scores is not None:
+            try:
+                SCORES_FILE.write_text(cls.original_scores, encoding="utf-8")
+            except OSError:
+                pass
+
     def setUp(self):
         """Create a test client before each test."""
         app.config["TESTING"] = True
@@ -61,11 +83,21 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"Underwater Flappy", res.data)
 
+    def test_serve_mobile_assets(self):
+        """Verify mobile PWA manifest and app icon are served."""
+        manifest_res = self.client.get("/manifest.json")
+        self.assertEqual(manifest_res.status_code, 200)
+        self.assertIn(b"standalone", manifest_res.data)
+
+        icon_res = self.client.get("/icon.svg")
+        self.assertEqual(icon_res.status_code, 200)
+        self.assertIn(b"<svg", icon_res.data)
+
     def test_score_sanitization(self):
         """Verify player names are trimmed and capped to 15 characters."""
         entry = scores.add_score("VeryLongPlayerNameExceedingLimit", 5)
         self.assertLessEqual(len(entry["name"]), 15)
 
+
 if __name__ == "__main__":
     unittest.main()
-

@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1a2d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>Underwater Flappy Adventure</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -12,7 +18,7 @@
       <!-- Top Bar -->
       <header class="game-header">
         <span class="game-title">🌊 Flappy Sub-Sea</span>
-        <div class="skin-selector" id="skinSelector">
+        <div class="skin-selector" id="skinSelector" title="Choose your swimmer">
           <button class="skin-btn active" data-skin="MANTA" title="Manta Ray">🐟</button>
           <button class="skin-btn" data-skin="SUBMARINE" title="Submarine">🚤</button>
           <button class="skin-btn" data-skin="SHARK" title="Shark">🦈</button>
@@ -48,7 +54,7 @@
           </div>
 
           <div class="player-input-box">
-            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15" />
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15" autocomplete="off" autocorrect="off" spellcheck="false" />
             <button id="saveNameBtn" class="save-name-btn">Save</button>
           </div>
 
@@ -58,22 +64,29 @@
 
       <!-- Action Footer (matching video layout) -->
       <footer class="game-footer">
-        <button id="resetBtn" class="action-btn purple-btn">
+        <button id="resetBtn" class="action-btn purple-btn" title="Reset Game">
           <svg viewBox="0 0 24 24" class="btn-icon">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
           <span>Reset</span>
         </button>
 
-        <button id="howItWorksBtn" class="action-btn dark-btn">How It Works</button>
+        <button id="mobileLeaderboardBtn" class="action-btn gold-btn mobile-only-btn" title="View Hall of Fame">
+          <span>🏆 Scores</span>
+        </button>
+
+        <button id="howItWorksBtn" class="action-btn dark-btn" title="How to Play">How It Works</button>
       </footer>
     </div>
 
-    <!-- Leaderboard Sidebar (Connected to Python REST API) -->
-    <aside class="leaderboard-panel">
+    <!-- Leaderboard Panel (Sidebar on desktop, slide-up sheet on mobile) -->
+    <aside id="leaderboardPanel" class="leaderboard-panel">
       <div class="leaderboard-header">
-        <h3>🏆 Hall of Fame</h3>
-        <span class="badge">Live API</span>
+        <div class="title-with-badge">
+          <h3>🏆 Hall of Fame</h3>
+          <span class="badge">Live API</span>
+        </div>
+        <button id="closeLeaderboardBtn" class="close-panel-btn" title="Close Leaderboard">✕</button>
       </div>
       <p class="panel-subtitle">Top scores saved on Python server</p>
       <ul id="leaderboardList" class="leaderboard-list">
@@ -97,6 +110,13 @@
         <button id="closeModalBtn" class="action-btn purple-btn">Got It!</button>
       </div>
     </div>
+  </div>
+
+  <!-- Mobile Landscape Orientation Reminder -->
+  <div class="rotate-device-prompt">
+    <div class="rotate-icon">📱🔄</div>
+    <h3>Rotate for Best Experience</h3>
+    <p>Please hold your device in portrait mode to play Flappy Sub-Sea!</p>
   </div>
 
   <script type="module" src="js/game.js"></script>
