@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#071321"
+    android:orientation="vertical">
+
+    <WebView
+        android:id="@+id/gameWebView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#071321" />
+
+    <FrameLayout
+        android:id="@+id/bannerAdContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#071321" />
+
+    <TextView
+        android:id="@+id/privacyOptionsButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:minHeight="36dp"
+        android:paddingHorizontal="12dp"
+        android:text="Privacy options"
+        android:textColor="#93C5FD"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>
