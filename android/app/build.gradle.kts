@@ -40,6 +40,13 @@ android {
 
 val syncGameAssets by tasks.registering(Sync::class) {
     from(rootProject.layout.projectDirectory.dir("../frontend/public"))
+    from(rootProject.layout.projectDirectory.dir("../frontend/assets")) {
+        into("assets")
+        // The level-range artwork files were uploaded without extensions; serve them as PNGs.
+        eachFile {
+            if (!name.contains(".")) name = "$name.png"
+        }
+    }
     into(layout.buildDirectory.dir("generated/gameAssets/game"))
 }
 tasks.named("preBuild").configure { dependsOn(syncGameAssets) }
