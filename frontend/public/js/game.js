@@ -4,6 +4,17 @@
  */
 import { SoundManager } from './audio.js';
 import { AdManager } from './adManager.js';
+const LEVEL_ART_ASSETS = [
+    { maxLevel: 5, file: 'Submarine.png' },
+    { maxLevel: 10, file: 'level 6 to 10 submarine.png' },
+    { maxLevel: 15, file: '11 to 15.png' },
+    { maxLevel: 20, file: '16 to 20.png' },
+    { maxLevel: 25, file: '21 to 25.png' },
+    { maxLevel: 30, file: '26 to 30.png' },
+    { maxLevel: 50, file: '31 to 50.png' },
+    { maxLevel: 70, file: '51 to 71.png' },
+    { maxLevel: 100, file: '71 to 100.png' }
+];
 const LEVEL_THEMES = [
     {
         name: 'SUNLIT SHALLOWS',
@@ -139,6 +150,7 @@ export class FlappyGame {
     legalVersion = '2026-11-v1';
     mantaSprite;
     mantaSpriteReady = false;
+    levelArtImages = [];
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
@@ -149,6 +161,12 @@ export class FlappyGame {
             this.mantaSpriteReady = true;
         };
         this.mantaSprite.src = 'assets/manta-ray.png';
+        // Preload the artwork stored in frontend/assets for its matching level range.
+        this.levelArtImages = LEVEL_ART_ASSETS.map(({ file }) => {
+            const image = new Image();
+            image.src = `assets/${encodeURIComponent(file)}`;
+            return image;
+        });
         // Cache UI elements
         this.readyOverlay = document.getElementById('readyOverlay');
         this.gameOverOverlay = document.getElementById('gameOverOverlay');
@@ -644,6 +662,17 @@ export class FlappyGame {
         bgGrad.addColorStop(1, theme.bgStops[3]);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Switch to the supplied artwork at each level range.
+        const artIndex = LEVEL_ART_ASSETS.findIndex(({ maxLevel }) => this.level <= maxLevel);
+        const art = this.levelArtImages[artIndex < 0 ? this.levelArtImages.length - 1 : artIndex];
+        if (art?.complete && art.naturalWidth > 0) {
+            const scale = Math.max(this.canvas.width / art.naturalWidth, this.canvas.height / art.naturalHeight);
+            const drawWidth = art.naturalWidth * scale;
+            const drawHeight = art.naturalHeight * scale;
+            ctx.drawImage(art, (this.canvas.width - drawWidth) / 2, (this.canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+            ctx.fillStyle = 'rgba(0, 12, 28, 0.16)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
         // 2. Dynamic theme light rays / bioluminescent spores / current streaks
         this.drawAmbientThemeEffects(theme);
         // 3. Wavy water surface highlights
