@@ -1,12 +1,12 @@
 # Android app
 
-This module wraps the existing HTML5 game in a small native Kotlin application.
+This module wraps the existing HTML5 game in a native Kotlin WebView application with Google Mobile Ads (Next-Gen SDK) and UMP consent.
 
 ## Project boundaries
 
-- `frontend/src` remains the source of truth for game behavior.
-- `frontend/public` contains the browser-ready files packaged into the app.
-- `android/app` contains Android-specific code: WebView hosting, lifecycle, consent, and ads.
+- `frontend/src` remains the source of truth for game behavior and `AdManager` browser simulation.
+- `frontend/public` contains the compiled browser-ready files packaged into the app.
+- `android/app` contains Android-specific code: WebView hosting, UMP consent (`AdsConsentManager`), and native ads (`AdMobConfig`, `BannerAdController`, `InterstitialAdController`, `RewardedAdController`, `NativeAdManager`).
 - `backend` remains an optional remote service. The game remains playable offline with local score storage.
 
 The Android build copies `frontend/public` into generated assets automatically. Do not edit files under `app/build/generated`.
@@ -23,19 +23,13 @@ gradle :app:assembleDebug
 
 Open the `android/` directory in Android Studio to sync and run on an emulator or device.
 
-## AdMob configuration
+## AdMob configuration & Test Mode
 
-The app uses Google's official sample app ID and Android banner test unit by default. Never test with live ad units.
-
-For local builds, provide publisher IDs only after registering the app in AdMob:
-
-```bash
-gradle :app:assembleDebug \
-  -PADMOB_APP_ID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY \
-  -PADMOB_BANNER_AD_UNIT_ID=ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ
-```
-
-Do not commit live ad IDs as secrets or replace test IDs before consent messages, privacy policy, store disclosures, and regional compliance have been reviewed. UMP consent is requested at launch; ads initialize only when UMP reports that ad requests are allowed.
+- `AdMobConfig.USE_TEST_ADS` and `USE_TEST_ADS` in `frontend/src/adManager.ts` are **`true` by default**.
+- While test mode is enabled, all three ad formats (Adaptive Banner, Interstitial, and Rewarded) strictly load Google's official Android test ad unit IDs. Never switch to production IDs until test verification and regional consent checks are complete.
+- Banner ads render in `bannerAdContainer` below the WebView and hide during active gameplay to prevent accidental clicks.
+- Interstitial ads are capped to every 3rd Game Over and at least 50 seconds apart.
+- Rewarded ads (`📺 REVIVE`) allow at most 1 revive per run, granted only on `OnUserEarnedRewardListener` confirmation, restoring the player to center height with 2.5 seconds of Bubble Shield invulnerability.
 
 ## Known limitation: online leaderboard
 

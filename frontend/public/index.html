@@ -106,6 +106,8 @@
             <button id="saveNameBtn" class="save-name-btn">Save</button>
           </div>
 
+          <button id="reviveBtn" class="overlay-revive-btn">📺 REVIVE (CONTINUE)</button>
+          <p id="reviveStatus" class="revive-status hidden"></p>
           <button id="playAgainBtn" class="overlay-action-btn">RESTART</button>
           <button id="homeFromGameOverBtn" class="menu-secondary game-home-btn">HOME</button>
         </div>
@@ -150,6 +152,25 @@
       </ul>
       <div class="modal-actions">
         <button id="closeModalBtn" class="action-btn purple-btn">Got It!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Browser-Only Simulated Test Ad Banner (hidden inside Native Android APK) -->
+  <div id="testAdBanner" class="sim-banner hidden" aria-label="Simulated Test Banner">
+    <span class="sim-ad-tag">TEST AD</span>
+    <span>Simulated Adaptive Banner (Native AdMob renders on Android)</span>
+  </div>
+
+  <!-- Browser-Only Simulated Interstitial / Rewarded Ad Modal -->
+  <div id="simAdModal" class="modal-backdrop hidden">
+    <div class="modal-card sim-ad-card">
+      <span class="sim-ad-tag">TEST AD SIMULATOR</span>
+      <h3 id="simAdTitle">Test Ad</h3>
+      <p id="simAdBody" class="sim-ad-body"></p>
+      <div class="sim-ad-actions">
+        <button id="simAdCompleteBtn" class="action-btn sim-complete-btn hidden">✅ Complete Ad</button>
+        <button id="simAdCloseBtn" class="action-btn dark-btn">Close</button>
       </div>
     </div>
   </div>

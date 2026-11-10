@@ -6,7 +6,7 @@ plugins {
 }
 
 val admobAppId = providers.gradleProperty("ADMOB_APP_ID")
-    .orElse("ca-app-pub-3940256099942544~3347511713")
+    .orElse("ca-app-pub-9534864038217573~3582604399")
     .get()
 val bannerAdUnitId = providers.gradleProperty("ADMOB_BANNER_AD_UNIT_ID")
     .orElse("ca-app-pub-3940256099942544/9214589741")

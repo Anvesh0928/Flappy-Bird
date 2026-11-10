@@ -3,6 +3,7 @@ package com.anvesh.subseaglider
 import android.app.Activity
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
@@ -14,7 +15,7 @@ import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
 
 /**
  * Owns the native adaptive banner view and its cleanup.
- * Uses Google's official test ad unit by default; never test with live ads.
+ * Uses AdMobConfig.bannerUnitId() so test mode is strictly enforced during development.
  */
 class BannerAdController(
     private val activity: Activity,
@@ -47,13 +48,13 @@ class BannerAdController(
         )
 
         val request = BannerAdRequest.Builder(
-            BuildConfig.ADMOB_BANNER_AD_UNIT_ID,
+            AdMobConfig.bannerUnitId(),
             adSize
         ).build()
 
         view.loadAd(request, object : AdLoadCallback<BannerAd> {
             override fun onAdLoaded(ad: BannerAd) {
-                Log.d(TAG, "Test banner loaded.")
+                Log.d(TAG, "Banner loaded (testMode=${AdMobConfig.USE_TEST_ADS}).")
             }
 
             override fun onAdFailedToLoad(adError: LoadAdError) {
@@ -63,6 +64,15 @@ class BannerAdController(
                 if (adView === view) adView = null
             }
         })
+    }
+
+    /**
+     * Hides the banner visually & blocks touches during active flight without
+     * collapsing container height so the WebView canvas never resizes mid-run.
+     */
+    fun setVisible(visible: Boolean) {
+        container.visibility = if (visible) View.VISIBLE else View.INVISIBLE
+        adView?.isEnabled = visible
     }
 
     fun destroy() {

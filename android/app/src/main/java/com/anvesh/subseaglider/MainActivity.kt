@@ -1,5 +1,6 @@
 package com.anvesh.subseaglider
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
@@ -7,8 +8,6 @@ import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.webkit.WebViewAssetLoader
-import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
 
 /**
  * Hosts the existing HTML5 game locally. Native Android responsibilities
@@ -17,10 +16,9 @@ import com.google.android.libraries.ads.mobile.sdk.initialization.Initialization
 class MainActivity : Activity() {
 
     private lateinit var gameWebView: WebView
-    private lateinit var bannerAdController: BannerAdController
+    private lateinit var adManager: NativeAdManager
     private lateinit var consentManager: AdsConsentManager
     private lateinit var privacyOptionsButton: TextView
-    private var adsInitializationStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +28,7 @@ class MainActivity : Activity() {
         val bannerContainer = findViewById<FrameLayout>(R.id.bannerAdContainer)
         privacyOptionsButton = findViewById(R.id.privacyOptionsButton)
 
-        bannerAdController = BannerAdController(this, bannerContainer)
+        adManager = NativeAdManager(this, bannerContainer, gameWebView)
         consentManager = AdsConsentManager(this)
 
         configureGameWebView()
@@ -39,6 +37,7 @@ class MainActivity : Activity() {
         collectConsentAndPrepareAds()
     }
 
+    @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
     private fun configureGameWebView() {
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -55,6 +54,8 @@ class MainActivity : Activity() {
             displayZoomControls = false
         }
 
+        // Only local bundled assets from appassets.androidplatform.net are loaded here.
+        gameWebView.addJavascriptInterface(adManager.jsBridge, "AndroidAds")
         gameWebView.webViewClient = LocalGameWebViewClient(assetLoader)
         gameWebView.setBackgroundColor(android.graphics.Color.rgb(7, 19, 33))
     }
@@ -72,7 +73,9 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 updatePrivacyOptionsVisibility()
-                if (canRequestAds) initializeAds()
+                if (canRequestAds) {
+                    adManager.initializeAndLoadAds()
+                }
             }
         }
     }
@@ -80,23 +83,6 @@ class MainActivity : Activity() {
     private fun updatePrivacyOptionsVisibility() {
         privacyOptionsButton.visibility =
             if (consentManager.isPrivacyOptionsRequired()) View.VISIBLE else View.GONE
-    }
-
-    private fun initializeAds() {
-        if (adsInitializationStarted) return
-        adsInitializationStarted = true
-
-        // Google requires GMA Next-Gen initialization on a background thread.
-        Thread {
-            MobileAds.initialize(
-                this,
-                InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
-            ) {
-                runOnUiThread {
-                    if (!isFinishing && !isDestroyed) bannerAdController.load()
-                }
-            }
-        }.start()
     }
 
     override fun onPause() {
@@ -119,7 +105,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        if (::bannerAdController.isInitialized) bannerAdController.destroy()
+        if (::adManager.isInitialized) adManager.destroy()
         if (::gameWebView.isInitialized) {
             gameWebView.stopLoading()
             gameWebView.destroy()

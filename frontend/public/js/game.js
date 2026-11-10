@@ -3,15 +3,109 @@
  * Built with HTML5 Canvas & TypeScript
  */
 import { SoundManager } from './audio.js';
+import { AdManager } from './adManager.js';
+const LEVEL_THEMES = [
+    {
+        name: 'SUNLIT SHALLOWS',
+        bgStops: ['#0277bd', '#01579b', '#002f6c', '#001433'],
+        waveColor: 'rgba(255, 255, 255, 0.14)',
+        pipeStops: ['#c5cbd3', '#eef2f7', '#8b96a5', '#616c7a'],
+        pipeStroke: '#39424e',
+        tickColor: '#d946ef',
+        floorBg: '#091526',
+        floorRim: '#1e3a5f',
+        weedColor: '#064e3b',
+        accentColor: '#7ee7ff',
+        ambientMode: 'sunbeams'
+    },
+    {
+        name: 'TURQUOISE REEF',
+        bgStops: ['#0d9488', '#0f766e', '#115e59', '#042f2e'],
+        waveColor: 'rgba(153, 246, 228, 0.18)',
+        pipeStops: ['#e7c697', '#fef3c7', '#b48a5a', '#785630'],
+        pipeStroke: '#452b14',
+        tickColor: '#fb7185',
+        floorBg: '#062624',
+        floorRim: '#14b8a6',
+        weedColor: '#f97316',
+        accentColor: '#5eead4',
+        ambientMode: 'sunbeams'
+    },
+    {
+        name: 'TWILIGHT TRENCH',
+        bgStops: ['#4f46e5', '#3730a3', '#1e1b4b', '#09071a'],
+        waveColor: 'rgba(196, 181, 253, 0.16)',
+        pipeStops: ['#a5b4fc', '#e0e7ff', '#6366f1', '#312e81'],
+        pipeStroke: '#1e1b4b',
+        tickColor: '#fbbf24',
+        floorBg: '#0d0921',
+        floorRim: '#6366f1',
+        weedColor: '#a855f7',
+        accentColor: '#c4b5fd',
+        ambientMode: 'biolum'
+    },
+    {
+        name: 'ABYSSAL GLOW',
+        bgStops: ['#0f172a', '#0c1b33', '#061224', '#020617'],
+        waveColor: 'rgba(56, 189, 248, 0.18)',
+        pipeStops: ['#64748b', '#cbd5e1', '#334155', '#0f172a'],
+        pipeStroke: '#020617',
+        tickColor: '#22d3ee',
+        floorBg: '#020617',
+        floorRim: '#0891b2',
+        weedColor: '#22d3ee',
+        accentColor: '#38bdf8',
+        ambientMode: 'biolum'
+    },
+    {
+        name: 'VOLCANIC VENT',
+        bgStops: ['#7f1d1d', '#4c1d3d', '#240f26', '#09080f'],
+        waveColor: 'rgba(251, 146, 60, 0.18)',
+        pipeStops: ['#9a7b6e', '#fed7aa', '#7c2d12', '#431407'],
+        pipeStroke: '#1c0a05',
+        tickColor: '#fb923c',
+        floorBg: '#120709',
+        floorRim: '#ea580c',
+        weedColor: '#f43f5e',
+        accentColor: '#fdba74',
+        ambientMode: 'embers'
+    }
+];
 export class FlappyGame {
     canvas;
     ctx;
     sound;
+    adManager;
     // Game States
     state = 'READY';
     score = 0;
     bestScore = 0;
+    hasRevivedThisRun = false;
+    invulnTimer = 0;
+    revivePending = false;
+    levelUpBannerTimer = 0;
+    levelUpText = '';
+    obstaclesPerLevel = 10;
+    get level() {
+        return Math.floor(this.score / this.obstaclesPerLevel) + 1;
+    }
+    getLevelTheme() {
+        return LEVEL_THEMES[(this.level - 1) % LEVEL_THEMES.length];
+    }
+    /** Noticeable speed & difficulty progression per level while keeping pipe spacing fair. */
+    getLevelTuning() {
+        const lvl = this.level - 1;
+        const pipeSpeed = Math.min(4.5, 2.0 + lvl * 0.35);
+        return {
+            gravity: Math.min(0.38, 0.24 + lvl * 0.015),
+            swimForce: -Math.min(6.7, 5.6 + lvl * 0.12),
+            gap: Math.max(118, 182 - lvl * 7),
+            pipeSpeed,
+            spawnInterval: Math.max(64, Math.round(252 / pipeSpeed))
+        };
+    }
     frameCount = 0;
+    swimPhase = 0;
     shakeTimer = 0;
     // Game Entities
     fish;
@@ -25,17 +119,36 @@ export class FlappyGame {
     bestScoreEl;
     resetBtn;
     playAgainBtn;
+    reviveBtn;
+    reviveStatusEl;
     soundBtn;
+    gameLevelChip;
     leaderboardList;
     howItWorksBtn;
     closeModalBtn;
     infoModal;
     playerNameInput;
     saveNameBtn;
+    homeScreen;
+    tutorialScreen;
+    gameScreen;
+    legalScreen;
+    characterScreen;
+    readyScreen;
+    selectedSkin = 'MANTA';
+    legalVersion = '2026-11-v1';
+    mantaSprite;
+    mantaSpriteReady = false;
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.sound = new SoundManager();
+        this.adManager = new AdManager();
+        this.mantaSprite = new Image();
+        this.mantaSprite.onload = () => {
+            this.mantaSpriteReady = true;
+        };
+        this.mantaSprite.src = 'assets/manta-ray.png';
         // Cache UI elements
         this.readyOverlay = document.getElementById('readyOverlay');
         this.gameOverOverlay = document.getElementById('gameOverOverlay');
@@ -43,13 +156,78 @@ export class FlappyGame {
         this.bestScoreEl = document.getElementById('bestScore');
         this.resetBtn = document.getElementById('resetBtn');
         this.playAgainBtn = document.getElementById('playAgainBtn');
+        this.reviveBtn = document.getElementById('reviveBtn');
+        this.reviveStatusEl = document.getElementById('reviveStatus');
         this.soundBtn = document.getElementById('soundToggleBtn');
+        this.gameLevelChip = document.getElementById('gameLevelChip');
         this.leaderboardList = document.getElementById('leaderboardList');
         this.howItWorksBtn = document.getElementById('howItWorksBtn');
         this.closeModalBtn = document.getElementById('closeModalBtn');
         this.infoModal = document.getElementById('infoModal');
         this.playerNameInput = document.getElementById('playerNameInput');
         this.saveNameBtn = document.getElementById('saveNameBtn');
+        this.homeScreen = document.getElementById('homeScreen');
+        this.tutorialScreen = document.getElementById('tutorialScreen');
+        this.gameScreen = document.getElementById('gameScreen');
+        this.legalScreen = document.getElementById('legalScreen');
+        this.characterScreen = document.getElementById('characterScreen');
+        this.readyScreen = document.getElementById('readyScreen');
+        document.getElementById('startGameBtn')?.addEventListener('click', () => {
+            const accepted = localStorage.getItem('subsea_legal_acceptance') === this.legalVersion;
+            this.showScreen(accepted ? 'character' : 'legal');
+        });
+        document.getElementById('acceptLegalBtn')?.addEventListener('click', () => {
+            const privacy = document.getElementById('privacyAccept');
+            const terms = document.getElementById('termsAccept');
+            if (!privacy.checked || !terms.checked)
+                return;
+            localStorage.setItem('subsea_legal_acceptance', this.legalVersion);
+            this.showScreen('character');
+        });
+        const updateLegalButton = () => {
+            const privacy = document.getElementById('privacyAccept');
+            const terms = document.getElementById('termsAccept');
+            const button = document.getElementById('acceptLegalBtn');
+            button.disabled = !(privacy.checked && terms.checked);
+        };
+        document.getElementById('privacyAccept')?.addEventListener('change', updateLegalButton);
+        document.getElementById('termsAccept')?.addEventListener('change', updateLegalButton);
+        const savedSkin = localStorage.getItem('subsea_selected_skin');
+        if (savedSkin === 'MANTA' || savedSkin === 'SUBMARINE' || savedSkin === 'SHARK') {
+            this.selectedSkin = savedSkin;
+        }
+        const syncSelectedSkinUI = () => {
+            document.querySelectorAll('[data-character]').forEach((item) => {
+                item.classList.toggle('selected', item.dataset.character === this.selectedSkin);
+            });
+            const readyCharacter = document.getElementById('readyCharacter');
+            if (readyCharacter) {
+                readyCharacter.textContent = this.selectedSkin === 'MANTA' ? '🐟' : this.selectedSkin === 'SUBMARINE' ? '🚤' : '🦈';
+            }
+        };
+        syncSelectedSkinUI();
+        document.querySelectorAll('[data-character]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const skin = button.dataset.character;
+                if (skin === 'MANTA' || skin === 'SUBMARINE' || skin === 'SHARK') {
+                    this.selectedSkin = skin;
+                    localStorage.setItem('subsea_selected_skin', skin);
+                    if (this.fish)
+                        this.fish.skin = skin;
+                    syncSelectedSkinUI();
+                }
+            });
+        });
+        document.getElementById('characterNextBtn')?.addEventListener('click', () => this.showScreen('tutorial'));
+        document.getElementById('characterBackBtn')?.addEventListener('click', () => this.showScreen('home'));
+        document.getElementById('tutorialPlayBtn')?.addEventListener('click', () => this.showScreen('ready'));
+        document.getElementById('backToHomeBtn')?.addEventListener('click', () => this.showScreen('character'));
+        document.getElementById('launchGameBtn')?.addEventListener('click', () => this.startGame());
+        document.getElementById('readyBackBtn')?.addEventListener('click', () => this.showScreen('character'));
+        document.getElementById('homeFromGameOverBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showScreen('home');
+        });
         this.loadBestScore();
         this.initEntities();
         this.initBackgroundBubbles();
@@ -57,6 +235,21 @@ export class FlappyGame {
         this.fetchLeaderboard();
         // Start loop
         requestAnimationFrame((t) => this.loop(t));
+    }
+    showScreen(screen) {
+        this.homeScreen.classList.toggle('hidden', screen !== 'home');
+        this.legalScreen.classList.toggle('hidden', screen !== 'legal');
+        this.characterScreen.classList.toggle('hidden', screen !== 'character');
+        this.tutorialScreen.classList.toggle('hidden', screen !== 'tutorial');
+        this.readyScreen.classList.toggle('hidden', screen !== 'ready');
+        this.gameScreen.classList.toggle('hidden', screen !== 'game');
+        if (screen !== 'game') {
+            this.adManager.setGameplayActive(false);
+        }
+    }
+    startGame() {
+        this.showScreen('game');
+        this.resetGame();
     }
     /** Initialize or reset player fish */
     initEntities() {
@@ -67,10 +260,11 @@ export class FlappyGame {
             width: 38,
             height: 28,
             velocity: 0,
-            gravity: 0.28,
-            swimForce: -6.2,
+            gravity: this.getLevelTuning().gravity,
+            swimForce: this.getLevelTuning().swimForce,
             rotation: 0,
-            finAngle: 0
+            finAngle: 0,
+            skin: this.selectedSkin
         };
         this.pipes = [];
         this.swimParticles = [];
@@ -100,8 +294,14 @@ export class FlappyGame {
             }
             this.onAction();
         };
-        // Canvas click & touch
-        this.canvas.addEventListener('pointerdown', handleAction);
+        // Full play area click & touch (ignoring visible interactive buttons/inputs)
+        const playArea = this.canvas.parentElement || this.canvas;
+        playArea.addEventListener('pointerdown', (e) => {
+            const target = e.target;
+            if (target && target.closest('button, input, label, a'))
+                return;
+            handleAction(e);
+        });
         // Keyboard controls
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
@@ -119,8 +319,35 @@ export class FlappyGame {
         // Play again button
         this.playAgainBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.resetGame();
+            this.startGame();
         });
+        // Revive button (Rewarded Ad — max once per run)
+        if (this.reviveBtn) {
+            this.reviveBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (this.state !== 'GAMEOVER' || this.hasRevivedThisRun || this.revivePending)
+                    return;
+                this.revivePending = true;
+                this.reviveBtn.disabled = true;
+                if (this.reviveStatusEl) {
+                    this.reviveStatusEl.textContent = 'Loading rewarded ad...';
+                    this.reviveStatusEl.classList.remove('hidden');
+                }
+                const rewarded = await this.adManager.showRewardedForRevive();
+                this.revivePending = false;
+                if (rewarded && this.state === 'GAMEOVER' && !this.hasRevivedThisRun) {
+                    this.revivePlayer();
+                }
+                else {
+                    if (this.reviveBtn)
+                        this.reviveBtn.disabled = false;
+                    if (this.reviveStatusEl) {
+                        this.reviveStatusEl.textContent = 'Watch full ad to earn your revive!';
+                        this.reviveStatusEl.classList.remove('hidden');
+                    }
+                }
+            });
+        }
         // Sound toggle
         this.soundBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -156,6 +383,7 @@ export class FlappyGame {
         if (this.state === 'READY') {
             this.state = 'PLAYING';
             this.readyOverlay.classList.add('hidden');
+            this.adManager.setGameplayActive(true);
             this.swim();
         }
         else if (this.state === 'PLAYING') {
@@ -180,7 +408,7 @@ export class FlappyGame {
     /** Spawn pipe obstacle with purple tick markings */
     spawnPipe() {
         const minHeight = 50;
-        const gap = 145;
+        const gap = this.getLevelTuning().gap;
         const groundHeight = 65;
         const maxTop = this.canvas.height - groundHeight - gap - minHeight;
         const topHeight = Math.floor(Math.random() * (maxTop - minHeight + 1)) + minHeight;
@@ -196,9 +424,14 @@ export class FlappyGame {
     /** Update physics and game logic */
     update() {
         this.frameCount++;
-        // Update ambient bubbles
+        // Update ambient bubbles (rise faster & stream sideways as level increases)
+        const speedMult = 1 + (this.level - 1) * 0.16;
+        const currentDrift = Math.max(0, (this.level - 1) * 0.35);
         for (const b of this.bubbles) {
-            b.y -= b.speed;
+            b.y -= b.speed * speedMult;
+            b.baseX -= currentDrift;
+            if (b.baseX < -15)
+                b.baseX += this.canvas.width + 30;
             b.x = b.baseX + Math.sin(this.frameCount * b.wobbleSpeed) * b.wobbleDistance;
             if (b.y < -10) {
                 b.y = this.canvas.height + 10;
@@ -219,7 +452,8 @@ export class FlappyGame {
         if (this.state === 'READY') {
             this.fish.y = this.canvas.height / 2 - 20 + Math.sin(this.frameCount * 0.08) * 8;
             this.fish.rotation = 0;
-            this.fish.finAngle = Math.sin(this.frameCount * 0.15) * 0.3;
+            this.swimPhase += 0.16;
+            this.fish.finAngle = Math.sin(this.swimPhase) * 0.3;
             return;
         }
         if (this.state === 'GAMEOVER') {
@@ -234,19 +468,25 @@ export class FlappyGame {
             return;
         }
         // --- PLAYING STATE ---
+        if (this.invulnTimer > 0)
+            this.invulnTimer--;
+        if (this.levelUpBannerTimer > 0)
+            this.levelUpBannerTimer--;
         // Apply gravity
         this.fish.velocity += this.fish.gravity;
         this.fish.y += this.fish.velocity;
-        // Rotation based on velocity
+        // Rotation based on velocity; fin beat accelerates seamlessly per level
         const targetAngle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, this.fish.velocity * 0.08));
         this.fish.rotation += (targetAngle - this.fish.rotation) * 0.2;
-        this.fish.finAngle = Math.sin(this.frameCount * 0.3) * 0.4;
+        this.swimPhase += 0.24 + Math.min(0.24, (this.level - 1) * 0.045);
+        this.fish.finAngle = Math.sin(this.swimPhase) * 0.44;
         // Spawn pipes periodically
-        if (this.frameCount % 95 === 0) {
+        const tuning = this.getLevelTuning();
+        if (this.frameCount % tuning.spawnInterval === 0) {
             this.spawnPipe();
         }
         // Update and check pipes
-        const pipeSpeed = 2.4;
+        const pipeSpeed = tuning.pipeSpeed;
         const groundLevel = this.canvas.height - 65;
         // Check boundary collisions
         if (this.fish.y - this.fish.radius <= 0) {
@@ -254,8 +494,15 @@ export class FlappyGame {
             this.fish.velocity = 0;
         }
         if (this.fish.y + this.fish.radius >= groundLevel) {
-            this.triggerGameOver();
-            return;
+            if (this.invulnTimer > 0) {
+                // Bubble shield protects against seabed while invulnerable
+                this.fish.y = groundLevel - this.fish.radius - 4;
+                this.fish.velocity = this.fish.swimForce * 0.7;
+            }
+            else {
+                this.triggerGameOver();
+                return;
+            }
         }
         for (let i = this.pipes.length - 1; i >= 0; i--) {
             const p = this.pipes[i];
@@ -263,15 +510,35 @@ export class FlappyGame {
             // Score passing
             if (!p.passed && p.x + p.width < this.fish.x) {
                 p.passed = true;
+                const prevLevel = this.level;
                 this.score++;
+                const nextTuning = this.getLevelTuning();
+                this.fish.gravity = nextTuning.gravity;
+                this.fish.swimForce = nextTuning.swimForce;
                 this.sound.playScore();
+                if (this.level > prevLevel) {
+                    const theme = this.getLevelTheme();
+                    this.levelUpBannerTimer = 115;
+                    this.levelUpText = `LEVEL ${this.level} · ${theme.name}`;
+                    if (this.gameLevelChip)
+                        this.gameLevelChip.textContent = `LEVEL ${this.level}`;
+                    for (let k = 0; k < 14; k++) {
+                        this.swimParticles.push({
+                            x: this.fish.x + (Math.random() - 0.5) * 32,
+                            y: this.fish.y + (Math.random() - 0.5) * 28,
+                            r: Math.random() * 4 + 2,
+                            alpha: 0.95,
+                            vy: -(Math.random() * 1.6 + 0.6)
+                        });
+                    }
+                }
                 if (this.score > this.bestScore) {
                     this.bestScore = this.score;
                     localStorage.setItem('flappy_best_score', this.bestScore.toString());
                 }
             }
-            // Check collision
-            if (this.checkPipeCollision(p)) {
+            // Check collision (skipped during 2.5s revive bubble shield)
+            if (this.invulnTimer === 0 && this.checkPipeCollision(p)) {
                 this.triggerGameOver();
                 return;
             }
@@ -302,20 +569,57 @@ export class FlappyGame {
             return;
         this.state = 'GAMEOVER';
         this.shakeTimer = 16;
+        this.adManager.setGameplayActive(false);
         this.sound.playHit();
         setTimeout(() => this.sound.playGameOver(), 150);
         // Update overlay UI
         this.finalScoreEl.textContent = this.score.toString();
         this.bestScoreEl.textContent = this.bestScore.toString();
+        if (this.reviveStatusEl) {
+            this.reviveStatusEl.classList.add('hidden');
+            this.reviveStatusEl.textContent = '';
+        }
+        if (this.reviveBtn) {
+            const canRevive = !this.hasRevivedThisRun && this.adManager.isReviveAvailable();
+            this.reviveBtn.classList.toggle('hidden', !canRevive);
+            this.reviveBtn.disabled = false;
+        }
         this.gameOverOverlay.classList.remove('hidden');
+        // Show frequency-capped Interstitial Ad after Game Over transition
+        void this.adManager.handleGameOver();
         // Submit score to backend
         this.submitScoreToBackend(this.score);
+    }
+    /** Continue same run after verified Rewarded Ad completion (once per run, 2.5s shield). */
+    revivePlayer() {
+        if (this.hasRevivedThisRun)
+            return;
+        this.hasRevivedThisRun = true;
+        this.invulnTimer = 150; // 2.5 seconds at 60 FPS
+        this.shakeTimer = 0;
+        // Restore player at safe vertical center and clear immediate overlapping pipes
+        this.fish.y = this.canvas.height * 0.45;
+        this.fish.velocity = 0;
+        this.fish.rotation = 0;
+        this.pipes = this.pipes.filter((p) => p.x + p.width < this.fish.x - 40 || p.x > this.fish.x + 80);
+        this.gameOverOverlay.classList.add('hidden');
+        this.state = 'PLAYING';
+        this.adManager.setGameplayActive(true);
+        this.swim();
     }
     /** Reset game to initial ready state */
     resetGame() {
         this.state = 'READY';
         this.score = 0;
         this.shakeTimer = 0;
+        this.hasRevivedThisRun = false;
+        this.invulnTimer = 0;
+        this.revivePending = false;
+        this.levelUpBannerTimer = 0;
+        this.levelUpText = '';
+        if (this.gameLevelChip)
+            this.gameLevelChip.textContent = 'LEVEL 1';
+        this.adManager.setGameplayActive(false);
         this.initEntities();
         this.readyOverlay.classList.remove('hidden');
         this.gameOverOverlay.classList.add('hidden');
@@ -324,6 +628,7 @@ export class FlappyGame {
     /** Render loop */
     draw() {
         const ctx = this.ctx;
+        const theme = this.getLevelTheme();
         ctx.save();
         // Camera shake effect on crash
         if (this.shakeTimer > 0) {
@@ -331,40 +636,101 @@ export class FlappyGame {
             const dy = (Math.random() - 0.5) * 8;
             ctx.translate(dx, dy);
         }
-        // 1. Deep ocean background gradient
+        // 1. Level-themed ocean background gradient
         const bgGrad = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-        bgGrad.addColorStop(0, '#0277bd'); // Light cyan blue at surface
-        bgGrad.addColorStop(0.3, '#01579b');
-        bgGrad.addColorStop(0.7, '#002f6c');
-        bgGrad.addColorStop(1, '#001433'); // Dark ocean floor
+        bgGrad.addColorStop(0, theme.bgStops[0]);
+        bgGrad.addColorStop(0.3, theme.bgStops[1]);
+        bgGrad.addColorStop(0.7, theme.bgStops[2]);
+        bgGrad.addColorStop(1, theme.bgStops[3]);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        // 2. Wavy water surface highlights
-        this.drawSurfaceWaves();
-        // 3. Ambient bubbles
+        // 2. Dynamic theme light rays / bioluminescent spores / current streaks
+        this.drawAmbientThemeEffects(theme);
+        // 3. Wavy water surface highlights
+        this.drawSurfaceWaves(theme);
+        // 4. Ambient bubbles
         this.drawBubbles();
-        // 4. Pipes (Obstacles)
-        this.drawPipes();
-        // 5. Swim bubbles
+        // 5. Pipes (Obstacles)
+        this.drawPipes(theme);
+        // 6. Swim bubbles
         this.drawSwimParticles();
-        // 6. Player (Swimmer/Creature)
+        // 7. Player (Swimmer/Creature)
         this.drawFish();
-        // 7. Seabed & seaweed foreground
-        this.drawSeabed();
-        // 8. In-game score display (bold retro font at top)
+        // 8. Seabed & seaweed foreground
+        this.drawSeabed(theme);
+        // 9. In-game score & level-up celebration
         if (this.state === 'PLAYING') {
-            this.drawScoreHeader();
+            this.drawScoreHeader(theme);
+            if (this.levelUpBannerTimer > 0) {
+                this.drawLevelUpBanner(theme);
+            }
+        }
+        ctx.restore();
+    }
+    /** Draw level-specific background animations (sunbeams, bioluminescence, volcanic embers & current streaks) */
+    drawAmbientThemeEffects(theme) {
+        const ctx = this.ctx;
+        ctx.save();
+        if (theme.ambientMode === 'sunbeams') {
+            const raySpeed = 0.015 + (this.level - 1) * 0.004;
+            for (let i = 0; i < 4; i++) {
+                const sway = Math.sin(this.frameCount * raySpeed + i * 1.6) * 28;
+                const baseX = 55 + i * 95 + sway;
+                const rayGrad = ctx.createLinearGradient(baseX, 0, baseX - 40, this.canvas.height * 0.72);
+                rayGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+                rayGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = rayGrad;
+                ctx.beginPath();
+                ctx.moveTo(baseX - 18, 0);
+                ctx.lineTo(baseX + 26, 0);
+                ctx.lineTo(baseX - 14, this.canvas.height * 0.72);
+                ctx.lineTo(baseX - 78, this.canvas.height * 0.72);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        else {
+            const glowColor = theme.ambientMode === 'embers' ? '251, 146, 60' : '56, 189, 248';
+            const speedY = theme.ambientMode === 'embers' ? 1.5 : 0.9;
+            for (let i = 0; i < 14; i++) {
+                const seedX = (i * 73 + 29) % this.canvas.width;
+                const yPos = this.canvas.height - ((this.frameCount * speedY + i * 47) % (this.canvas.height - 40));
+                const xPos = (seedX + Math.sin(this.frameCount * 0.04 + i) * 18 + this.canvas.width) % this.canvas.width;
+                const pulse = 0.35 + 0.45 * Math.sin(this.frameCount * 0.08 + i * 1.3);
+                const r = 2 + (i % 3);
+                ctx.fillStyle = `rgba(${glowColor}, ${pulse})`;
+                ctx.beginPath();
+                ctx.arc(xPos, yPos, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Underwater current speed streaks from Level 2+
+        if (this.level >= 2) {
+            const streakCount = Math.min(10, 3 + this.level);
+            const streakSpeed = this.getLevelTuning().pipeSpeed * 1.45;
+            ctx.strokeStyle = theme.waveColor;
+            ctx.lineWidth = 1.6;
+            for (let i = 0; i < streakCount; i++) {
+                const len = 28 + (i % 4) * 14;
+                const y = 70 + ((i * 83) % (this.canvas.height - 160));
+                const x = this.canvas.width - ((this.frameCount * streakSpeed + i * 97) % (this.canvas.width + len + 40));
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + len, y);
+                ctx.stroke();
+            }
         }
         ctx.restore();
     }
     /** Draw decorative ocean surface ripples */
-    drawSurfaceWaves() {
+    drawSurfaceWaves(theme) {
         const ctx = this.ctx;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        const rippleSpeed = 2 + (this.level - 1) * 0.6;
+        ctx.fillStyle = theme.waveColor;
         ctx.beginPath();
         ctx.moveTo(0, 0);
         for (let x = 0; x <= this.canvas.width; x += 20) {
-            const y = 8 + Math.sin((x + this.frameCount * 2) * 0.05) * 4;
+            const y = 8 + Math.sin((x + this.frameCount * rippleSpeed) * 0.05) * 4;
             ctx.lineTo(x, y);
         }
         ctx.lineTo(this.canvas.width, 0);
@@ -403,62 +769,60 @@ export class FlappyGame {
             ctx.restore();
         }
     }
-    /**
-     * Draw Obstacle Pipes.
-     * Styled precisely like the video reference:
-     * Silver/metallic pipe cylinders with purple measurement ticks along the side!
-     */
-    drawPipes() {
+    /** Draw Obstacle Pipes styled with the active level theme. */
+    drawPipes(theme) {
         const ctx = this.ctx;
         const lipHeight = 24;
         const lipExtend = 5;
         for (const p of this.pipes) {
             // --- Top Pipe ---
             const topGrad = ctx.createLinearGradient(p.x, 0, p.x + p.width, 0);
-            topGrad.addColorStop(0, '#c5cbd3');
-            topGrad.addColorStop(0.35, '#eef2f7');
-            topGrad.addColorStop(0.8, '#8b96a5');
-            topGrad.addColorStop(1, '#616c7a');
+            topGrad.addColorStop(0, theme.pipeStops[0]);
+            topGrad.addColorStop(0.35, theme.pipeStops[1]);
+            topGrad.addColorStop(0.8, theme.pipeStops[2]);
+            topGrad.addColorStop(1, theme.pipeStops[3]);
             // Top stem
             ctx.fillStyle = topGrad;
             ctx.fillRect(p.x, 0, p.width, p.topHeight - lipHeight);
-            ctx.strokeStyle = '#39424e';
+            ctx.strokeStyle = theme.pipeStroke;
             ctx.lineWidth = 2;
             ctx.strokeRect(p.x, 0, p.width, p.topHeight - lipHeight);
             // Top pipe collar / lip
             ctx.fillStyle = topGrad;
             ctx.fillRect(p.x - lipExtend, p.topHeight - lipHeight, p.width + lipExtend * 2, lipHeight);
             ctx.strokeRect(p.x - lipExtend, p.topHeight - lipHeight, p.width + lipExtend * 2, lipHeight);
-            // Purple graduation / measurement ticks on side (as seen in video!)
-            this.drawPurpleTicks(p.x + 4, 10, p.topHeight - lipHeight - 10, true);
+            // Measurement ticks on side
+            this.drawPipeTicks(p.x + 4, 10, p.topHeight - lipHeight - 10, theme.tickColor);
             // --- Bottom Pipe ---
             const bottomHeight = this.canvas.height - p.bottomY;
             const btmGrad = ctx.createLinearGradient(p.x, 0, p.x + p.width, 0);
-            btmGrad.addColorStop(0, '#c5cbd3');
-            btmGrad.addColorStop(0.35, '#eef2f7');
-            btmGrad.addColorStop(0.8, '#8b96a5');
-            btmGrad.addColorStop(1, '#616c7a');
+            btmGrad.addColorStop(0, theme.pipeStops[0]);
+            btmGrad.addColorStop(0.35, theme.pipeStops[1]);
+            btmGrad.addColorStop(0.8, theme.pipeStops[2]);
+            btmGrad.addColorStop(1, theme.pipeStops[3]);
             // Bottom collar / lip
             ctx.fillStyle = btmGrad;
+            ctx.strokeStyle = theme.pipeStroke;
+            ctx.lineWidth = 2;
             ctx.fillRect(p.x - lipExtend, p.bottomY, p.width + lipExtend * 2, lipHeight);
             ctx.strokeRect(p.x - lipExtend, p.bottomY, p.width + lipExtend * 2, lipHeight);
             // Bottom stem
             ctx.fillStyle = btmGrad;
             ctx.fillRect(p.x, p.bottomY + lipHeight, p.width, bottomHeight - lipHeight);
             ctx.strokeRect(p.x, p.bottomY + lipHeight, p.width, bottomHeight - lipHeight);
-            // Purple graduation ticks on bottom pipe
-            this.drawPurpleTicks(p.x + 4, p.bottomY + lipHeight + 6, bottomHeight - lipHeight - 12, false);
+            // Measurement ticks on bottom pipe
+            this.drawPipeTicks(p.x + 4, p.bottomY + lipHeight + 6, bottomHeight - lipHeight - 12, theme.tickColor);
         }
     }
-    /** Draw purple measurement tick markings matching the reference video */
-    drawPurpleTicks(x, startY, length, isTop) {
+    /** Draw themed measurement tick markings on obstacle pipes */
+    drawPipeTicks(x, startY, length, color) {
         const ctx = this.ctx;
-        ctx.strokeStyle = '#d946ef'; // Bright purple tick marks
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2.5;
         const step = 14;
         const ticksCount = Math.floor(length / step);
         for (let i = 0; i < ticksCount; i++) {
-            const y = isTop ? startY + i * step : startY + i * step;
+            const y = startY + i * step;
             const tickLength = i % 2 === 0 ? 9 : 5;
             ctx.beginPath();
             ctx.moveTo(x, y);
@@ -466,83 +830,261 @@ export class FlappyGame {
             ctx.stroke();
         }
     }
-    /** Draw Player Swimmer Creature (with fin animation & eye) */
+    /** Draw the active player glider skin with revive bubble shield */
     drawFish() {
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(this.fish.x, this.fish.y);
+        if (this.invulnTimer > 0) {
+            const blinkingOut = this.invulnTimer < 35 && Math.floor(this.invulnTimer / 5) % 2 === 1;
+            if (!blinkingOut) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 24 + Math.sin(this.frameCount * 0.2) * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
         ctx.rotate(this.fish.rotation);
-        // Body gradient (sleek black & golden-yellow accents inspired by the video avatar)
-        const bodyGrad = ctx.createRadialGradient(-4, -4, 2, 0, 0, 18);
-        bodyGrad.addColorStop(0, '#475569');
-        bodyGrad.addColorStop(0.5, '#1e293b');
-        bodyGrad.addColorStop(1, '#0f172a');
-        // Tail fin (flapping with finAngle)
+        if (this.fish.skin === 'SUBMARINE') {
+            this.drawSubmarineSkin(ctx);
+        }
+        else if (this.fish.skin === 'SHARK') {
+            this.drawSharkSkin(ctx);
+        }
+        else {
+            this.drawMantaSkin(ctx);
+        }
+        ctx.restore();
+    }
+    /** Draw realistic 3D Manta Ray sprite with smooth fin & tail swimming wave */
+    drawMantaSkin(ctx) {
+        if (this.mantaSpriteReady && this.mantaSprite.naturalWidth > 0) {
+            const srcW = this.mantaSprite.naturalWidth;
+            const srcH = this.mantaSprite.naturalHeight;
+            const drawW = 74;
+            const drawH = (srcH / srcW) * drawW;
+            // Anchor torso near the player's collision center (shifted slightly left so whip tail trails behind)
+            const originX = -drawW * 0.56;
+            const phase = this.swimPhase * 0.85 + this.fish.finAngle * 1.1;
+            const wingFlex = 1 + Math.sin(phase) * 0.085;
+            const originY = -drawH * 0.5 * wingFlex;
+            const slices = 24;
+            const sliceSrcW = srcW / slices;
+            const sliceDstW = drawW / slices;
+            ctx.save();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            for (let i = 0; i < slices; i++) {
+                const u = i / (slices - 1); // 0 = whip tail & left wingtip, 1 = head & cephalic horns
+                // Tail & outer wing flex gracefully while the head/eye stays anchored and sharp
+                const flexWeight = Math.pow(Math.max(0, 1 - u * 1.18), 1.4);
+                const waveY = Math.sin(phase - u * 4.4) * 3.6 * flexWeight;
+                const sx = i * sliceSrcW;
+                const sw = i === slices - 1 ? srcW - sx : sliceSrcW + 0.5;
+                const dx = originX + i * sliceDstW;
+                const dw = i === slices - 1 ? sliceDstW : sliceDstW + 0.6;
+                ctx.drawImage(this.mantaSprite, sx, 0, sw, srcH, dx, originY + waveY, dw, drawH * wingFlex);
+            }
+            ctx.restore();
+            return;
+        }
+        // Immediate vector fallback before image decode completes
+        const wingSpan = 16 + Math.sin(this.frameCount * 0.2) * 4;
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#67e8f9';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(16, 0);
+        ctx.quadraticCurveTo(2, -wingSpan, -11, -wingSpan * 0.58);
+        ctx.lineTo(-15, 0);
+        ctx.lineTo(-11, wingSpan * 0.58);
+        ctx.quadraticCurveTo(2, wingSpan, 16, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        this.drawSkinEye(ctx, 10, -3);
+    }
+    /** Draw Yellow-Orange Explorer Submarine skin with periscope & propeller */
+    drawSubmarineSkin(ctx) {
+        // Spinning rear propeller
+        ctx.save();
+        ctx.translate(-20, 1);
+        const bladeScale = Math.cos(this.frameCount * 0.55);
+        ctx.fillStyle = '#94a3b8';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(-3, -2, 5, 4);
+        ctx.beginPath();
+        ctx.ellipse(-3, 0, 2.5, Math.max(2, Math.abs(bladeScale) * 9), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        // Conning tower & periscope on top
+        ctx.fillStyle = '#ea580c';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.roundRect(-5, -16, 12, 7, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(2, -16);
+        ctx.lineTo(2, -21);
+        ctx.lineTo(7, -21);
+        ctx.stroke();
+        // Main yellow-amber hull
+        const hullGrad = ctx.createLinearGradient(0, -12, 0, 13);
+        hullGrad.addColorStop(0, '#fde047');
+        hullGrad.addColorStop(0.55, '#f59e0b');
+        hullGrad.addColorStop(1, '#c2410c');
+        ctx.fillStyle = hullGrad;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 1, 19, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Red/teal racing stripe along hull
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(-16, 4);
+        ctx.lineTo(16, 4);
+        ctx.stroke();
+        // Cyan cockpit porthole
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(6, -1, 5.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e0f2fe';
+        ctx.beginPath();
+        ctx.arc(4.5, -2.5, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    /** Draw Fearless Shark skin with tall dorsal fin, gill slits & teeth */
+    drawSharkSkin(ctx) {
+        // Tall pointed dorsal fin
+        ctx.fillStyle = '#475569';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-3, -10);
+        ctx.quadraticCurveTo(-7, -21, -11, -20);
+        ctx.lineTo(-10, -8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Notched crescent shark tail
         ctx.save();
         ctx.translate(-16, 0);
         ctx.rotate(this.fish.finAngle);
-        ctx.fillStyle = '#f59e0b'; // Amber golden tail
+        ctx.fillStyle = '#64748b';
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(-12, -9);
-        ctx.lineTo(-8, 0);
-        ctx.lineTo(-12, 9);
+        ctx.moveTo(2, 0);
+        ctx.lineTo(-12, -12);
+        ctx.lineTo(-6, 0);
+        ctx.lineTo(-11, 10);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        // Torpedo body
+        const sharkGrad = ctx.createLinearGradient(0, -13, 0, 12);
+        sharkGrad.addColorStop(0, '#64748b');
+        sharkGrad.addColorStop(0.58, '#94a3b8');
+        sharkGrad.addColorStop(0.62, '#f1f5f9');
+        sharkGrad.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = sharkGrad;
         ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-        // Main Body oval
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 18, 13, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#facc15';
         ctx.lineWidth = 2;
-        ctx.stroke();
-        // Side Fin (animated)
-        ctx.save();
-        ctx.translate(-2, 4);
-        ctx.rotate(-this.fish.finAngle * 1.5);
-        ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.ellipse(0, 0, 7, 4, 0.4, 0, Math.PI * 2);
+        ctx.moveTo(21, 1);
+        ctx.quadraticCurveTo(10, -13, -16, -5);
+        ctx.lineTo(-16, 5);
+        ctx.quadraticCurveTo(8, 14, 21, 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Side pectoral fin
+        ctx.save();
+        ctx.translate(-2, 5);
+        ctx.rotate(-this.fish.finAngle * 1.2);
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.moveTo(2, 0);
+        ctx.lineTo(-6, 9);
+        ctx.lineTo(-4, 0);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
         ctx.restore();
-        // Eye
+        // Three gill slits
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(1 + i * 2.5, -2);
+            ctx.lineTo(i * 2.5, 4);
+            ctx.stroke();
+        }
+        // Grin & tiny teeth
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(9, 5);
+        ctx.quadraticCurveTo(14, 6, 18, 3);
+        ctx.stroke();
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(8, -4, 4.5, 0, Math.PI * 2);
+        ctx.moveTo(11, 5);
+        ctx.lineTo(12.5, 3);
+        ctx.lineTo(14, 5);
+        ctx.lineTo(15.5, 3);
+        ctx.lineTo(17, 4.5);
         ctx.fill();
-        // Pupil
+        this.drawSkinEye(ctx, 11, -3.5);
+    }
+    /** Shared crisp cartoon eye for creature skins */
+    drawSkinEye(ctx, ex, ey) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(ex, ey, 4.2, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = '#0f172a';
         ctx.beginPath();
-        ctx.arc(9.5, -4, 2.2, 0, Math.PI * 2);
+        ctx.arc(ex + 1.3, ey, 2.1, 0, Math.PI * 2);
         ctx.fill();
-        // Specular eye shine
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(9, -5.2, 1, 0, Math.PI * 2);
+        ctx.arc(ex + 0.8, ey - 1.2, 0.9, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
     }
-    /** Draw ocean floor & animated seaweed */
-    drawSeabed() {
+    /** Draw themed ocean floor & speed-responsive seaweed */
+    drawSeabed(theme) {
         const ctx = this.ctx;
         const floorY = this.canvas.height - 65;
+        const swaySpeed = 0.05 * (1 + (this.level - 1) * 0.18);
         // Ocean floor ground silhouette
-        ctx.fillStyle = '#091526';
+        ctx.fillStyle = theme.floorBg;
         ctx.fillRect(0, floorY, this.canvas.width, 65);
         // Floor top edge rim
-        ctx.fillStyle = '#1e3a5f';
+        ctx.fillStyle = theme.floorRim;
         ctx.fillRect(0, floorY, this.canvas.width, 6);
-        // Coral / Seaweed swaying gently
-        ctx.fillStyle = '#064e3b';
+        // Coral / Seaweed swaying with current strength
+        ctx.fillStyle = theme.weedColor;
         const weeds = [25, 75, 140, 210, 280, 345, 385];
         for (const wx of weeds) {
-            const sway = Math.sin((this.frameCount + wx) * 0.05) * 6;
+            const sway = Math.sin((this.frameCount + wx) * swaySpeed) * (6 + Math.min(5, this.level - 1));
             ctx.beginPath();
             ctx.moveTo(wx, floorY);
             ctx.quadraticCurveTo(wx + sway, floorY - 22, wx + sway * 1.5, floorY - 38);
@@ -550,19 +1092,48 @@ export class FlappyGame {
             ctx.fill();
         }
     }
-    /** Draw in-game score at top center */
-    drawScoreHeader() {
+    /** Draw in-game score & level HUD */
+    drawScoreHeader(theme) {
         const ctx = this.ctx;
         ctx.save();
-        ctx.font = '900 42px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        // Black stroke outline
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 6;
-        ctx.strokeText(this.score.toString(), this.canvas.width / 2, 58);
-        // Crisp white fill
+        ctx.fillStyle = 'rgba(5, 20, 42, 0.78)';
+        ctx.beginPath();
+        ctx.roundRect(this.canvas.width / 2 - 86, 14, 172, 62, 12);
+        ctx.fill();
+        ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = theme.accentColor;
+        ctx.fillText(`LEVEL ${this.level} · ${theme.name}`, this.canvas.width / 2, 32);
+        ctx.font = '900 26px "Segoe UI", Arial, sans-serif';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(this.score.toString(), this.canvas.width / 2, 58);
+        ctx.fillText(this.score.toString(), this.canvas.width / 2, 60);
+        ctx.font = '700 10px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#c7e8ff';
+        ctx.fillText(`${this.score % this.obstaclesPerLevel}/${this.obstaclesPerLevel} TO NEXT LEVEL`, this.canvas.width / 2, 88);
+        ctx.restore();
+    }
+    /** Draw brief level-up celebration toast when advancing levels */
+    drawLevelUpBanner(theme) {
+        const ctx = this.ctx;
+        const progress = this.levelUpBannerTimer / 115;
+        const alpha = Math.min(1, progress * 3, (1 - progress) * 4 + 0.35);
+        const yOffset = (1 - Math.min(1, (1 - progress) * 5)) * -12;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(7, 22, 46, 0.9)';
+        ctx.strokeStyle = theme.accentColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(this.canvas.width / 2 - 125, 102 + yOffset, 250, 42, 21);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = '800 13px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = theme.accentColor;
+        ctx.fillText(`⚡ ${this.levelUpText}`, this.canvas.width / 2, 122 + yOffset);
+        ctx.font = '700 10px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('SPEED BOOST ACTIVE!', this.canvas.width / 2, 136 + yOffset);
         ctx.restore();
     }
     /** Main RAF Loop */
