@@ -4,8 +4,6 @@ Uses Python's built-in unittest framework (zero external test dependencies requi
 """
 
 import unittest
-import json
-import os
 import sys
 from pathlib import Path
 
@@ -59,15 +57,28 @@ class BackendApiTests(unittest.TestCase):
         self.assertTrue(data.get("success"))
         self.assertIsInstance(data.get("scores"), list)
 
+    def test_get_scores_today_filter(self):
+        """Verify period=today query parameter works."""
+        self.client.post("/api/scores", json={"name": "TodayTester", "score": 99, "skin": "SHARK"})
+        res = self.client.get("/api/scores?period=today")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("period"), "today")
+        self.assertTrue(any(s["name"] == "TodayTester" and s["skin"] == "SHARK" for s in data["scores"]))
+
     def test_post_valid_score(self):
-        """Verify submitting a valid score adds it to the leaderboard."""
-        payload = {"name": "TestDiver", "score": 42}
+        """Verify submitting a valid score adds it to the leaderboard with rank and skin."""
+        payload = {"name": "TestDiver", "score": 42, "skin": "SUBMARINE"}
         res = self.client.post("/api/scores", json=payload)
         self.assertEqual(res.status_code, 201)
         data = res.get_json()
         self.assertTrue(data.get("success"))
         self.assertEqual(data["record"]["name"], "TestDiver")
         self.assertEqual(data["record"]["score"], 42)
+        self.assertEqual(data["record"]["skin"], "SUBMARINE")
+        self.assertIsInstance(data.get("rank"), int)
+        self.assertGreaterEqual(data["rank"], 1)
 
     def test_post_invalid_score_format(self):
         """Verify submitting a non-integer score returns HTTP 400."""
@@ -94,9 +105,39 @@ class BackendApiTests(unittest.TestCase):
         self.assertIn(b"<svg", icon_res.data)
 
     def test_score_sanitization(self):
-        """Verify player names are trimmed and capped to 15 characters."""
-        entry = scores.add_score("VeryLongPlayerNameExceedingLimit", 5)
+        """Verify player names are trimmed and capped to 15 characters and invalid skin falls back."""
+        entry = scores.add_score("VeryLongPlayerNameExceedingLimit", 5, skin="INVALID_SKIN")
         self.assertLessEqual(len(entry["name"]), 15)
+        self.assertEqual(entry["skin"], "MANTA")
+
+    def test_unique_player_and_top10(self):
+        """Verify each player has only 1 best entry, lower runs get no rank, and leaderboard stays Top 10."""
+        first_res = self.client.post("/api/scores", json={"name": "UniqueHero", "score": 500, "skin": "SHARK"}).get_json()
+        self.assertTrue(first_res.get("is_new_record"))
+        self.assertEqual(first_res.get("rank"), 1)
+
+        # Lower score for same player (different case) must give NO rank and NOT duplicate
+        low_res = self.client.post("/api/scores", json={"name": "uniquehero", "score": 15, "skin": "MANTA"}).get_json()
+        self.assertFalse(low_res.get("is_new_record"))
+        self.assertIsNone(low_res.get("rank"))
+
+        res = self.client.get("/api/scores?limit=10")
+        data = res.get_json()
+        self.assertLessEqual(len(data["scores"]), 10)
+        hero_entries = [s for s in data["scores"] if s["name"].lower() == "uniquehero"]
+        self.assertEqual(len(hero_entries), 1)
+        self.assertEqual(hero_entries[0]["score"], 500)
+
+        # Higher score updates existing entry
+        high_res = self.client.post("/api/scores", json={"name": "UniqueHero", "score": 700, "skin": "ANGLER"}).get_json()
+        self.assertTrue(high_res.get("is_new_record"))
+        self.assertEqual(high_res.get("rank"), 1)
+        res2 = self.client.get("/api/scores?limit=10")
+        data2 = res2.get_json()
+        hero_entries2 = [s for s in data2["scores"] if s["name"].lower() == "uniquehero"]
+        self.assertEqual(len(hero_entries2), 1)
+        self.assertEqual(hero_entries2[0]["score"], 700)
+        self.assertEqual(data2["scores"][0]["name"], "UniqueHero")
 
 
 if __name__ == "__main__":

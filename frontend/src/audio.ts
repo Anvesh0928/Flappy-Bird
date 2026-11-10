@@ -68,8 +68,8 @@ export class SoundManager {
     osc.stop(now + 0.12);
   }
 
-  /** Play a score chime */
-  public playScore(): void {
+  /** Play a score chime (pitch rises slightly with consecutive perfect streak) */
+  public playScore(combo: number = 0): void {
     if (!this.enabled) return;
     this.initContext();
     if (!this.ctx) return;
@@ -77,10 +77,11 @@ export class SoundManager {
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
+    const multiplier = Math.pow(1.06, Math.min(combo, 6));
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(587.33, now); // D5
-    osc.frequency.setValueAtTime(880.00, now + 0.08); // A5
+    osc.frequency.setValueAtTime(587.33 * multiplier, now);
+    osc.frequency.setValueAtTime(880.00 * multiplier, now + 0.08);
 
     gain.gain.setValueAtTime(0.15, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
@@ -90,6 +91,73 @@ export class SoundManager {
 
     osc.start(now);
     osc.stop(now + 0.25);
+  }
+
+  /** Play golden pearl pickup sparkle */
+  public playPearl(): void {
+    if (!this.enabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const notes = [880, 1174.66, 1567.98];
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      const t = now + idx * 0.045;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.14, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.16);
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    });
+  }
+
+  /** Play power-up activation sweep */
+  public playPowerUp(): void {
+    if (!this.enabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.28);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.3);
+  }
+
+  /** Play bubble shield pop/deflect sound */
+  public playShieldBreak(): void {
+    if (!this.enabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(620, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
   }
 
   /** Play a pipe / collision hit sound */
@@ -123,7 +191,7 @@ export class SoundManager {
     if (!this.ctx) return;
 
     const now = this.ctx.currentTime;
-    const notes = [440, 392, 349.23, 293.66]; // A4, G4, F4, D4
+    const notes = [440, 392, 349.23, 293.66];
 
     notes.forEach((freq, idx) => {
       const osc = this.ctx!.createOscillator();

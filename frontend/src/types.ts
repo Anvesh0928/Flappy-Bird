@@ -2,8 +2,10 @@
  * Type definitions for Underwater Flappy Game
  */
 
-export type GameStatus = 'READY' | 'PLAYING' | 'GAMEOVER';
-export type SkinType = 'MANTA' | 'SUBMARINE' | 'SHARK';
+export type GameStatus = 'READY' | 'PLAYING' | 'PAUSED' | 'GAMEOVER';
+export type SkinType = 'MANTA' | 'SUBMARINE' | 'SHARK' | 'ANGLER';
+export type CollectibleType = 'PEARL' | 'SHIELD' | 'SLOWMO' | 'MAGNET';
+export type DepthZone = 'SUNLIT' | 'TWILIGHT' | 'ABYSS';
 
 export interface Fish {
   x: number;
@@ -22,10 +24,41 @@ export interface Fish {
 export interface Pipe {
   x: number;
   topHeight: number;
+  baseTopHeight: number;
   bottomY: number;
   width: number;
   gap: number;
   passed: boolean;
+  oscAmp: number;
+  oscSpeed: number;
+  oscPhase: number;
+}
+
+export interface Collectible {
+  x: number;
+  y: number;
+  radius: number;
+  type: CollectibleType;
+  phase: number;
+  collected: boolean;
+}
+
+export interface FloatingText {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  alpha: number;
+  vy: number;
+}
+
+export interface ParallaxSilhouette {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  kind: 'CORAL' | 'SHIP' | 'FISH_SCHOOL';
+  speed: number;
 }
 
 export interface Bubble {
@@ -42,14 +75,6 @@ export interface Bubble {
 export interface ScoreRecord {
   name: string;
   score: number;
+  skin?: SkinType;
   date?: string;
 }
-
-export interface GameSettings {
-  pipeSpeed: number;
-  pipeSpawnInterval: number;
-  pipeGap: number;
-  gravity: number;
-  swimForce: number;
-}
-

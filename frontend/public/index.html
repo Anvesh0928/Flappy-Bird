@@ -17,31 +17,97 @@
     <div class="game-wrapper">
       <!-- Top Bar -->
       <header class="game-header">
-        <span class="game-title">🌊 Flappy Sub-Sea</span>
+        <div class="header-left">
+          <span class="game-title">🌊 Sub-Sea</span>
+          <span id="pearlCounter" class="pearl-pill" title="Total Pearls Collected">🦪 <strong id="pearlBank">0</strong></span>
+        </div>
         <div class="skin-selector" id="skinSelector" title="Choose your swimmer">
           <button class="skin-btn active" data-skin="MANTA" title="Manta Ray">🐟</button>
           <button class="skin-btn" data-skin="SUBMARINE" title="Submarine">🚤</button>
           <button class="skin-btn" data-skin="SHARK" title="Shark">🦈</button>
+          <button class="skin-btn locked" data-skin="ANGLER" id="anglerSkinBtn" title="Anglerfish (Unlock: 10 Pearls or 15 Score)">🏮</button>
         </div>
-        <button id="soundToggleBtn" class="icon-btn" title="Toggle Sound">🔊</button>
+        <div class="header-actions">
+          <button id="pauseBtn" class="icon-btn hidden" title="Pause Game">⏸️</button>
+          <button id="soundToggleBtn" class="icon-btn" title="Toggle Sound">🔊</button>
+        </div>
       </header>
 
       <!-- Main Canvas Screen -->
       <div class="canvas-container">
         <canvas id="gameCanvas" width="400" height="600"></canvas>
-        
-        <!-- Get Ready Overlay (matching video reference) -->
+
+        <!-- Active Power-Up / Zone HUD -->
+        <div id="activeHud" class="active-hud"></div>
+
+        <!-- First-Time Onboarding Wizard -->
+        <div id="onboardingOverlay" class="game-overlay onboarding-overlay hidden">
+          <!-- Step 1: Welcome -->
+          <div class="onboard-step" data-step="1">
+            <div class="onboard-icon">🌊</div>
+            <h2 class="onboard-title">Sub-Sea Glider</h2>
+            <p class="onboard-text">Dive into the deep ocean, glide past metallic pipes, and collect golden pearls!</p>
+            <button id="onboardStartBtn" class="overlay-action-btn">Get Started →</button>
+          </div>
+
+          <!-- Step 2: Privacy Policy & Terms -->
+          <div class="onboard-step hidden" data-step="2">
+            <h3 class="onboard-subtitle">📜 Privacy &amp; Terms</h3>
+            <div class="terms-box">
+              <p><strong>Privacy Policy:</strong> Your diver name, high scores, and pearl progress are stored locally on your device. Saved scores and your chosen diver name are sent to our leaderboard server.</p>
+              <p><strong>Terms of Play:</strong> Please choose a respectful diver name and play fairly without automated bots.</p>
+            </div>
+            <label class="terms-check">
+              <input type="checkbox" id="acceptTermsCheck" />
+              <span>I accept the Privacy Policy &amp; Terms</span>
+            </label>
+            <button id="acceptTermsBtn" class="overlay-action-btn" disabled>Accept &amp; Continue →</button>
+          </div>
+
+          <!-- Step 3: Player Name (Asked Once) -->
+          <div class="onboard-step hidden" data-step="3">
+            <div class="onboard-icon">🤿</div>
+            <h3 class="onboard-subtitle">Enter Diver Name</h3>
+            <p class="onboard-text">Used automatically on the Hall of Fame leaderboard.</p>
+            <input type="text" id="onboardNameInput" class="onboard-input" placeholder="Your name (max 15 chars)" maxlength="15" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <p id="nameErrorMsg" class="onboard-error hidden">Please enter a name to continue.</p>
+            <button id="saveOnboardNameBtn" class="overlay-action-btn">Save &amp; Continue →</button>
+          </div>
+
+          <!-- Step 4: How to Play -->
+          <div class="onboard-step hidden" data-step="4">
+            <h3 class="onboard-subtitle">🎮 How to Play</h3>
+            <ul class="onboard-list">
+              <li><strong>Tap / Space:</strong> Glide upward smoothly.</li>
+              <li><strong>🦪 Pearls (+2):</strong> Unlock the 🏮 Anglerfish skin.</li>
+              <li><strong>Power-Ups:</strong> Grab 🫧 Shield, ⏱️ Slow-Mo &amp; 🧲 Magnet.</li>
+              <li><strong>Speed Boost:</strong> Current speeds up as your score climbs!</li>
+            </ul>
+            <button id="finishOnboardBtn" class="overlay-action-btn">Ready to Dive! 🌊</button>
+          </div>
+        </div>
+
+        <!-- Ready to Dive (Home) Overlay -->
         <div id="readyOverlay" class="game-overlay">
-          <h2 class="ready-title">Get Ready!</h2>
+          <h2 class="ready-title">Ready to Dive!</h2>
+          <div id="diverNameBadge" class="diver-pill hidden">🤿 <span id="diverNameText">Player</span></div>
+          <div id="missionPill" class="mission-pill">🎯 Reach Score 10 to earn Bronze</div>
           <div class="tap-guide">
             <div class="arrow-indicator">▲</div>
-            <div class="tap-badge">TAP OR CLICK</div>
+            <div class="tap-badge">TAP OR CLICK TO GLIDE</div>
           </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pauseOverlay" class="game-overlay pause-overlay hidden">
+          <h2 id="pauseTitle" class="pause-title">Paused</h2>
+          <button id="resumeBtn" class="overlay-action-btn">▶ Resume</button>
         </div>
 
         <!-- Game Over Overlay -->
         <div id="gameOverOverlay" class="game-overlay hidden">
           <h2 class="game-over-title">Game Over</h2>
+          <div id="medalBadge" class="medal-badge hidden">🥉 Bronze Diver</div>
           <div class="score-card">
             <div class="score-row">
               <span>Score:</span>
@@ -51,18 +117,21 @@
               <span>Best:</span>
               <strong id="bestScore">0</strong>
             </div>
+            <div class="score-row small-row">
+              <span>Pearls:</span>
+              <strong id="runPearls">+0 🦪</strong>
+            </div>
           </div>
+          <div id="rankFeedback" class="rank-feedback hidden"></div>
 
-          <div class="player-input-box">
-            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15" autocomplete="off" autocorrect="off" spellcheck="false" />
-            <button id="saveNameBtn" class="save-name-btn">Save</button>
+          <div class="gameover-actions">
+            <button id="playAgainBtn" class="overlay-action-btn">🔄 RESTART</button>
+            <button id="homeBtn" class="overlay-home-btn">🏠 HOME</button>
           </div>
-
-          <button id="playAgainBtn" class="overlay-action-btn">Play Again</button>
         </div>
       </div>
 
-      <!-- Action Footer (matching video layout) -->
+      <!-- Action Footer -->
       <footer class="game-footer">
         <button id="resetBtn" class="action-btn purple-btn" title="Reset Game">
           <svg viewBox="0 0 24 24" class="btn-icon">
@@ -84,13 +153,14 @@
       <div class="leaderboard-header">
         <div class="title-with-badge">
           <h3>🏆 Hall of Fame</h3>
-          <span class="badge">Live API</span>
         </div>
         <button id="closeLeaderboardBtn" class="close-panel-btn" title="Close Leaderboard">✕</button>
       </div>
-      <p class="panel-subtitle">Top scores saved on Python server</p>
+      <div class="leaderboard-tabs">
+        <button id="tabAllTime" class="lb-tab active" data-period="all">All-Time</button>
+        <button id="tabToday" class="lb-tab" data-period="today">Today</button>
+      </div>
       <ul id="leaderboardList" class="leaderboard-list">
-        <!-- Dynamically populated from /api/scores -->
         <li class="loading-item">Loading scores...</li>
       </ul>
     </aside>
@@ -101,10 +171,10 @@
     <div class="modal-card">
       <h3>🎮 How to Play</h3>
       <ul>
-        <li><strong>Swim Up:</strong> Click, tap the screen, or press <kbd>Space</kbd> / <kbd>▲</kbd>.</li>
-        <li><strong>Dodge Pipes:</strong> Pass through the gaps in the metallic pipes.</li>
-        <li><strong>Score Points:</strong> Each cleared pipe awards 1 point.</li>
-        <li><strong>Stay Clear:</strong> Don't hit pipes or sink to the ocean floor!</li>
+        <li><strong>Swim Up:</strong> Tap, click, or press <kbd>Space</kbd> / <kbd>▲</kbd>.</li>
+        <li><strong>Perfect Pass:</strong> Glide cleanly through gap centers for combo streaks!</li>
+        <li><strong>Pearls & Power-Ups:</strong> Collect 🦪 Pearls (+2 pts) to unlock the 🏮 Anglerfish, plus 🫧 Shield, ⏱️ Slow-Mo & 🧲 Magnet.</li>
+        <li><strong>Depth Zones:</strong> Dive deeper at 15 & 30 pts—watch out for moving pipes!</li>
       </ul>
       <div class="modal-actions">
         <button id="closeModalBtn" class="action-btn purple-btn">Got It!</button>
