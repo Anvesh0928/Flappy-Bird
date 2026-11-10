@@ -21,6 +21,18 @@ interface LevelTheme {
   ambientMode: 'sunbeams' | 'biolum' | 'embers';
 }
 
+const LEVEL_ART_ASSETS = [
+  { maxLevel: 5, file: 'Submarine.png' },
+  { maxLevel: 10, file: 'level 6 to 10 submarine.png' },
+  { maxLevel: 15, file: '11 to 15' },
+  { maxLevel: 20, file: '16 to 20' },
+  { maxLevel: 25, file: '21 to 25' },
+  { maxLevel: 30, file: '26 to 30' },
+  { maxLevel: 50, file: '31 to 50' },
+  { maxLevel: 70, file: '51 to 71' },
+  { maxLevel: 100, file: '71 to 100' }
+] as const;
+
 const LEVEL_THEMES: readonly LevelTheme[] = [
   {
     name: 'SUNLIT SHALLOWS',
@@ -163,6 +175,7 @@ export class FlappyGame {
   private readonly legalVersion = '2026-11-v1';
   private mantaSprite: HTMLImageElement;
   private mantaSpriteReady: boolean = false;
+  private levelArtImages: HTMLImageElement[] = [];
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -175,6 +188,13 @@ export class FlappyGame {
       this.mantaSpriteReady = true;
     };
     this.mantaSprite.src = 'assets/manta-ray.png';
+
+    // Preload the artwork stored in frontend/assets; each image is used for its level range.
+    this.levelArtImages = LEVEL_ART_ASSETS.map(({ file }) => {
+      const image = new Image();
+      image.src = `assets/${encodeURIComponent(file).replace(/%20/g, '%20')}.png`;
+      return image;
+    });
 
     // Cache UI elements
     this.readyOverlay = document.getElementById('readyOverlay')!;
@@ -712,6 +732,18 @@ export class FlappyGame {
     bgGrad.addColorStop(1, theme.bgStops[3]);
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Level artwork changes every 5 gates (then follows the larger ranges supplied).
+    const artIndex = LEVEL_ART_ASSETS.findIndex(({ maxLevel }) => this.level <= maxLevel);
+    const art = this.levelArtImages[artIndex < 0 ? this.levelArtImages.length - 1 : artIndex];
+    if (art?.complete && art.naturalWidth > 0) {
+      const scale = Math.max(this.canvas.width / art.naturalWidth, this.canvas.height / art.naturalHeight);
+      const drawWidth = art.naturalWidth * scale;
+      const drawHeight = art.naturalHeight * scale;
+      ctx.drawImage(art, (this.canvas.width - drawWidth) / 2, (this.canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+      ctx.fillStyle = 'rgba(0, 12, 28, 0.16)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 
     // 2. Dynamic theme light rays / bioluminescent spores / current streaks
     this.drawAmbientThemeEffects(theme);
