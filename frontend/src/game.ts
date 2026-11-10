@@ -24,13 +24,13 @@ interface LevelTheme {
 const LEVEL_ART_ASSETS = [
   { maxLevel: 5, file: 'Submarine.png' },
   { maxLevel: 10, file: 'level 6 to 10 submarine.png' },
-  { maxLevel: 15, file: '11 to 15' },
-  { maxLevel: 20, file: '16 to 20' },
-  { maxLevel: 25, file: '21 to 25' },
-  { maxLevel: 30, file: '26 to 30' },
-  { maxLevel: 50, file: '31 to 50' },
-  { maxLevel: 70, file: '51 to 71' },
-  { maxLevel: 100, file: '71 to 100' }
+  { maxLevel: 15, file: '11 to 15.png' },
+  { maxLevel: 20, file: '16 to 20.png' },
+  { maxLevel: 25, file: '21 to 25.png' },
+  { maxLevel: 30, file: '26 to 30.png' },
+  { maxLevel: 50, file: '31 to 50.png' },
+  { maxLevel: 70, file: '51 to 71.png' },
+  { maxLevel: 100, file: '71 to 100.png' }
 ] as const;
 
 const LEVEL_THEMES: readonly LevelTheme[] = [
@@ -192,7 +192,7 @@ export class FlappyGame {
     // Preload the artwork stored in frontend/assets; each image is used for its level range.
     this.levelArtImages = LEVEL_ART_ASSETS.map(({ file }) => {
       const image = new Image();
-      image.src = `assets/${encodeURIComponent(file).replace(/%20/g, '%20')}.png`;
+      image.src = `assets/${encodeURIComponent(file)}`;
       return image;
     });
 
