@@ -6,6 +6,7 @@ on:
     paths:
       - "android/**"
       - "frontend/public/**"
+      - "frontend/assets/**"
       - "frontend/src/**"
       - ".github/workflows/android-build.yml"
   pull_request:
