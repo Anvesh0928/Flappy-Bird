@@ -1,4 +1,4 @@
-# Android app
+# Ocean Rush - Underwater Adventure (Android)
 
 This module wraps the existing HTML5 game in a native Kotlin WebView application with Google Mobile Ads (Next-Gen SDK) and UMP consent.
 
