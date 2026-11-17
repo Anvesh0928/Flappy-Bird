@@ -1,4 +1,4 @@
-# 🌊 Underwater Flappy Adventure
+# Ocean Rush - Underwater Adventure
 
 A high-performance, responsive underwater Flappy Bird style game built with **Python (Flask)** backend and **HTML5, CSS3, JavaScript, and TypeScript** frontend.
 
