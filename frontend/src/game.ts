@@ -155,13 +155,13 @@ export class FlappyGame {
   /** Noticeable speed & difficulty progression per level while keeping pipe spacing fair. */
   private getLevelTuning() {
     const lvl = this.level - 1;
-    const pipeSpeed = Math.min(6.2, 3.2 + lvl * 0.4);
+    const pipeSpeed = Math.min(9.0, 5.0 + lvl * 0.55);
     return {
       gravity: Math.min(0.38, 0.24 + lvl * 0.015),
       swimForce: -Math.min(6.7, 5.6 + lvl * 0.12),
       gap: Math.max(118, 182 - lvl * 7),
       pipeSpeed,
-      spawnInterval: Math.max(64, Math.round(252 / pipeSpeed))
+      spawnInterval: Math.max(32, Math.round(252 / pipeSpeed))
     };
   }
   private frameCount: number = 0;
