@@ -670,7 +670,7 @@ export class FlappyGame {
     // Rotation based on velocity; fin beat accelerates seamlessly per level
     const targetAngle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, this.fish.velocity * 0.08));
     this.fish.rotation += (targetAngle - this.fish.rotation) * 0.2;
-    this.swimPhase += 0.32 + Math.min(0.30, (this.level - 1) * 0.055);
+    this.swimPhase += 1.05 + Math.min(0.75, (this.level - 1) * 0.10);
     this.fish.finAngle = Math.sin(this.swimPhase) * 0.44;
 
     // Spawn pipes periodically
@@ -1175,7 +1175,7 @@ export class FlappyGame {
 
     if (sprite) {
       this.drawEvolutionFlash(ctx);
-      this.drawCrispCreatureSprite(ctx, sprite, 104, 0.62, 0.025, 0.08, 0.045, 'rgba(125, 211, 252, 0.65)');
+      this.drawCrispCreatureSprite(ctx, sprite, 104, 0.62, 0.075, 0.17, 0.085, 'rgba(125, 211, 252, 0.65)');
       return;
     }
 
@@ -1203,8 +1203,8 @@ export class FlappyGame {
     if (sprite?.complete && sprite.naturalWidth > 0) {
       const drawW = tierIdx === 0 ? 64 : tierIdx === 1 ? 68 : 78;
       const drawH = (sprite.naturalHeight / sprite.naturalWidth) * drawW;
-      const thrustPulse = 1 + Math.sin(this.swimPhase * 1.4) * 0.035;
-      const bobY = Math.sin(this.swimPhase * 0.9) * 1.1;
+      const thrustPulse = 1 + Math.sin(this.swimPhase * 1.8) * 0.085;
+      const bobY = Math.sin(this.swimPhase * 1.4) * 3.5;
 
       this.drawEvolutionFlash(ctx);
 
@@ -1258,7 +1258,7 @@ export class FlappyGame {
       const sprite = this.sharkTierSprites[tierIdx];
       if (sprite?.complete && sprite.naturalWidth > 0) {
         this.drawEvolutionFlash(ctx);
-        this.drawCrispCreatureSprite(ctx, sprite, 108, 0.56, 0.038, 0.024, 0.042, 'rgba(56, 189, 248, 0.62)');
+        this.drawCrispCreatureSprite(ctx, sprite, 108, 0.56, 0.085, 0.065, 0.09, 'rgba(56, 189, 248, 0.62)');
         return;
       }
     }
