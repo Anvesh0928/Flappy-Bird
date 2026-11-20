@@ -213,7 +213,8 @@ export class FlappyGame {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
     // Supersample backing canvas cleanly so 360px evolution sprites stay sharp on mobile & HD screens.
-    this.renderScale = Math.max(2, Math.min(window.devicePixelRatio || 1, 3));
+    // Keep the backing canvas lightweight for older integrated GPUs and low-memory PCs.
+    this.renderScale = Math.max(1, Math.min(window.devicePixelRatio || 1, 1.25));
     this.canvas.width = Math.round(this.viewW * this.renderScale);
     this.canvas.height = Math.round(this.viewH * this.renderScale);
     this.sound = new SoundManager();
@@ -454,7 +455,7 @@ export class FlappyGame {
   /** Generate ambient floating bubbles */
   private initBackgroundBubbles(): void {
     this.bubbles = [];
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 12; i++) {
       const baseX = Math.random() * this.viewW;
       this.bubbles.push({
         baseX: baseX,
@@ -1141,11 +1142,9 @@ export class FlappyGame {
     ctx.scale(scaleX, scaleY);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    if ('filter' in ctx) {
-      ctx.filter = 'brightness(1.16) contrast(1.12) saturate(1.16)';
-    }
-    ctx.shadowColor = rimColor;
-    ctx.shadowBlur = 9;
+    // Avoid per-frame canvas filters and large shadow blur; these are costly on older GPUs.
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.drawImage(sprite, -drawW * anchorRatioX, -drawH * 0.5, drawW, drawH);
     ctx.restore();
   }
