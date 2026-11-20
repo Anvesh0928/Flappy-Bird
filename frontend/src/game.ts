@@ -155,7 +155,7 @@ export class FlappyGame {
   /** Noticeable speed & difficulty progression per level while keeping pipe spacing fair. */
   private getLevelTuning() {
     const lvl = this.level - 1;
-    const pipeSpeed = Math.min(4.5, 2.0 + lvl * 0.35);
+    const pipeSpeed = Math.min(6.2, 3.2 + lvl * 0.4);
     return {
       gravity: Math.min(0.38, 0.24 + lvl * 0.015),
       swimForce: -Math.min(6.7, 5.6 + lvl * 0.12),
@@ -670,7 +670,7 @@ export class FlappyGame {
     // Rotation based on velocity; fin beat accelerates seamlessly per level
     const targetAngle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, this.fish.velocity * 0.08));
     this.fish.rotation += (targetAngle - this.fish.rotation) * 0.2;
-    this.swimPhase += 0.24 + Math.min(0.24, (this.level - 1) * 0.045);
+    this.swimPhase += 0.32 + Math.min(0.30, (this.level - 1) * 0.055);
     this.fish.finAngle = Math.sin(this.swimPhase) * 0.44;
 
     // Spawn pipes periodically
