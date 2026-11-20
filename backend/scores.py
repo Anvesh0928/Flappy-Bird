@@ -43,33 +43,59 @@ def save_scores(scores: List[Dict[str, Any]]) -> bool:
         return False
 
 
+def _dedupe_best_scores(scores: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only each player's highest score (case-insensitive) sorted descending."""
+    best_by_player: Dict[str, Dict[str, Any]] = {}
+    for entry in scores:
+        name = str(entry.get("name") or "Anonymous").strip()[:15] or "Anonymous"
+        key = name.lower()
+        score_val = max(0, min(int(entry.get("score", 0)), 999999))
+        existing = best_by_player.get(key)
+        if existing is None or score_val > existing["score"]:
+            best_by_player[key] = {
+                "name": name,
+                "score": score_val,
+                "date": entry.get("date", "")
+            }
+
+    unique_scores = list(best_by_player.values())
+    unique_scores.sort(key=lambda s: s["score"], reverse=True)
+    return unique_scores
+
+
 def get_top_scores(limit: int = 10) -> List[Dict[str, Any]]:
-    """Return top scores sorted descending."""
-    scores = load_scores()
-    scores.sort(key=lambda s: s.get("score", 0), reverse=True)
-    return scores[:limit]
+    """Return top unique-player scores sorted descending."""
+    return _dedupe_best_scores(load_scores())[:limit]
 
 
 def add_score(player_name: str, score: int) -> Dict[str, Any]:
     """
-    Validate, add a new score entry, sort, and persist.
-    Returns the created entry.
+    Validate and upsert a player's best score, keep one rank per player, and persist.
+    Returns the player's current best record.
     """
     clean_name = (player_name or "Anonymous").strip()[:15] or "Anonymous"
     valid_score = max(0, min(int(score), 999999))
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    new_entry = {
-        "name": clean_name,
-        "score": valid_score,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-    }
+    scores = _dedupe_best_scores(load_scores())
+    key = clean_name.lower()
+    existing = next((s for s in scores if s["name"].lower() == key), None)
 
-    scores = load_scores()
-    scores.append(new_entry)
-    scores.sort(key=lambda s: s.get("score", 0), reverse=True)
-    # Keep top 50 records to prevent unbounded file growth
+    if existing is None:
+        record = {"name": clean_name, "score": valid_score, "date": now_str}
+        scores.append(record)
+    elif valid_score > existing["score"]:
+        existing["name"] = clean_name
+        existing["score"] = valid_score
+        existing["date"] = now_str
+        record = existing
+    else:
+        record = existing
+
+    scores.sort(key=lambda s: s["score"], reverse=True)
+    # Keep top 50 unique players to prevent unbounded file growth
     scores = scores[:50]
 
     save_scores(scores)
-    return new_entry
+    return record
 

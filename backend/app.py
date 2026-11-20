@@ -11,6 +11,7 @@ import scores
 
 # Configure application and frontend static root
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "public"
+EXTRA_ASSETS_DIR = Path(__file__).resolve().parent.parent / "frontend" / "assets"
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 CORS(app)  # Enable cross-origin requests for local development flexibility
@@ -20,6 +21,28 @@ CORS(app)  # Enable cross-origin requests for local development flexibility
 def serve_index():
     """Serve the main game interface."""
     return send_from_directory(app.static_folder, "index.html")
+
+
+@app.route("/assets/<path:filename>")
+def serve_assets(filename):
+    """Serve bundled public assets and fallback to frontend/assets (including extensionless PNGs)."""
+    public_assets = (FRONTEND_DIR / "assets").resolve()
+    extra_assets = EXTRA_ASSETS_DIR.resolve()
+    candidate_public = (public_assets / filename).resolve()
+    if candidate_public.is_relative_to(public_assets) and candidate_public.is_file():
+        return send_from_directory(str(public_assets), filename)
+
+    candidate_extra = (extra_assets / filename).resolve()
+    if candidate_extra.is_relative_to(extra_assets) and candidate_extra.is_file():
+        return send_from_directory(str(extra_assets), filename)
+
+    if filename.lower().endswith(".png"):
+        stem_name = filename[:-4]
+        candidate_stem = (extra_assets / stem_name).resolve()
+        if candidate_stem.is_relative_to(extra_assets) and candidate_stem.is_file():
+            return send_from_directory(str(extra_assets), stem_name, mimetype="image/png")
+
+    return send_from_directory(str(public_assets), filename)
 
 
 @app.route("/<path:path>")

@@ -21,16 +21,38 @@ interface LevelTheme {
   ambientMode: 'sunbeams' | 'biolum' | 'embers';
 }
 
-const LEVEL_ART_ASSETS = [
-  { maxLevel: 5, file: 'Submarine.png' },
-  { maxLevel: 10, file: 'level 6 to 10 submarine.png' },
-  { maxLevel: 15, file: '11 to 15.png' },
-  { maxLevel: 20, file: '16 to 20.png' },
-  { maxLevel: 25, file: '21 to 25.png' },
-  { maxLevel: 30, file: '26 to 30.png' },
-  { maxLevel: 50, file: '31 to 50.png' },
-  { maxLevel: 70, file: '51 to 71.png' },
-  { maxLevel: 100, file: '71 to 100.png' }
+const SUBMARINE_TIER_ASSETS = [
+  'assets/sub-1-5.png',    // Level 1
+  'assets/sub-6-10.png',   // Level 2
+  'assets/sub-11-15.png',  // Level 3
+  'assets/sub-16-20.png',  // Level 4
+  'assets/sub-21-25.png',  // Level 5
+  'assets/sub-26-30.png',  // Level 6
+  'assets/sub-31-50.png',  // Level 7
+  'assets/sub-51-71.png',  // Level 8
+  'assets/sub-71-100.png'  // Level 9+
+] as const;
+
+const SHARK_TIER_ASSETS = [
+  'assets/shark-lvl-2.png',  // Level 2
+  'assets/shark-lvl-3.png',  // Level 3
+  'assets/shark-lvl-4.png',  // Level 4
+  'assets/shark-lvl-5.png',  // Level 5
+  'assets/shark-lvl-6.png',  // Level 6
+  'assets/shark-lvl-7.png',  // Level 7
+  'assets/shark-lvl-8.png',  // Level 8
+  'assets/shark-lvl-9.png',  // Level 9
+  'assets/shark-lvl-10.png'  // Level 10+
+] as const;
+
+const MANTA_TIER_ASSETS = [
+  'assets/manta-lvl-1.png',  // Level 1
+  'assets/manta-lvl-2.png',  // Level 2
+  'assets/manta-lvl-3.png',  // Level 3
+  'assets/manta-lvl-4.png',  // Level 4
+  'assets/manta-lvl-5.png',  // Level 5
+  'assets/manta-lvl-6.png',  // Level 6
+  'assets/manta-lvl-7.png'   // Level 7+
 ] as const;
 
 const LEVEL_THEMES: readonly LevelTheme[] = [
@@ -104,6 +126,9 @@ const LEVEL_THEMES: readonly LevelTheme[] = [
 export class FlappyGame {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private readonly viewW: number = 400;
+  private readonly viewH: number = 600;
+  private readonly renderScale: number;
   private sound: SoundManager;
   private adManager: AdManager;
 
@@ -115,6 +140,7 @@ export class FlappyGame {
   private invulnTimer: number = 0;
   private revivePending: boolean = false;
   private levelUpBannerTimer: number = 0;
+  private evolutionFlashTimer: number = 0;
   private levelUpText: string = '';
   private readonly obstaclesPerLevel = 10;
 
@@ -163,23 +189,33 @@ export class FlappyGame {
   private howItWorksBtn: HTMLElement | null;
   private closeModalBtn: HTMLElement | null;
   private infoModal: HTMLElement | null;
-  private playerNameInput: HTMLInputElement | null;
-  private saveNameBtn: HTMLElement | null;
+  private firstLoginNameInput: HTMLInputElement | null;
+  private homeDiverTag: HTMLElement | null;
+  private nameInputHint: HTMLElement | null;
+  private introSplash: HTMLElement | null;
   private homeScreen: HTMLElement;
+  private playerNameScreen: HTMLElement;
   private tutorialScreen: HTMLElement;
   private gameScreen: HTMLElement;
   private legalScreen: HTMLElement;
   private characterScreen: HTMLElement;
   private readyScreen: HTMLElement;
+  private leaderboardScreen: HTMLElement;
   private selectedSkin: Fish['skin'] = 'MANTA';
   private readonly legalVersion = '2026-11-v1';
   private mantaSprite: HTMLImageElement;
   private mantaSpriteReady: boolean = false;
-  private levelArtImages: HTMLImageElement[] = [];
+  private mantaTierSprites: HTMLImageElement[] = [];
+  private submarineTierSprites: HTMLImageElement[] = [];
+  private sharkTierSprites: HTMLImageElement[] = [];
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
+    // Supersample backing canvas cleanly so 360px evolution sprites stay sharp on mobile & HD screens.
+    this.renderScale = Math.max(2, Math.min(window.devicePixelRatio || 1, 3));
+    this.canvas.width = Math.round(this.viewW * this.renderScale);
+    this.canvas.height = Math.round(this.viewH * this.renderScale);
     this.sound = new SoundManager();
     this.adManager = new AdManager();
 
@@ -189,12 +225,17 @@ export class FlappyGame {
     };
     this.mantaSprite.src = 'assets/manta-ray.png';
 
-    // Preload the artwork stored in frontend/assets; each image is used for its level range.
-    this.levelArtImages = LEVEL_ART_ASSETS.map(({ file }) => {
-      const image = new Image();
-      image.src = `assets/${encodeURIComponent(file)}`;
-      return image;
-    });
+    const preload = (files: readonly string[]): HTMLImageElement[] =>
+      files.map((file) => {
+        const image = new Image();
+        image.src = file;
+        return image;
+      });
+
+    // Preload transparent Manta Ray, Submarine & Shark evolution sprites used per level tier.
+    this.mantaTierSprites = preload(MANTA_TIER_ASSETS);
+    this.submarineTierSprites = preload(SUBMARINE_TIER_ASSETS);
+    this.sharkTierSprites = preload(SHARK_TIER_ASSETS);
 
     // Cache UI elements
     this.readyOverlay = document.getElementById('readyOverlay')!;
@@ -211,25 +252,67 @@ export class FlappyGame {
     this.howItWorksBtn = document.getElementById('howItWorksBtn');
     this.closeModalBtn = document.getElementById('closeModalBtn');
     this.infoModal = document.getElementById('infoModal');
-    this.playerNameInput = document.getElementById('playerNameInput') as HTMLInputElement | null;
-    this.saveNameBtn = document.getElementById('saveNameBtn');
+    this.firstLoginNameInput = document.getElementById('firstLoginNameInput') as HTMLInputElement | null;
+    this.homeDiverTag = document.getElementById('homeDiverTag');
+    this.nameInputHint = document.getElementById('nameInputHint');
+    this.introSplash = document.getElementById('introSplash');
     this.homeScreen = document.getElementById('homeScreen')!;
+    this.playerNameScreen = document.getElementById('playerNameScreen')!;
     this.tutorialScreen = document.getElementById('tutorialScreen')!;
     this.gameScreen = document.getElementById('gameScreen')!;
     this.legalScreen = document.getElementById('legalScreen')!;
     this.characterScreen = document.getElementById('characterScreen')!;
     this.readyScreen = document.getElementById('readyScreen')!;
+    this.leaderboardScreen = document.getElementById('leaderboardScreen')!;
+
+    this.initIntroSplash();
+    this.syncDiverBadge();
+
+    const routeAfterLegal = () => {
+      this.showScreen(this.getSavedPlayerName() ? 'character' : 'name');
+    };
+
     document.getElementById('startGameBtn')?.addEventListener('click', () => {
       const accepted = localStorage.getItem('subsea_legal_acceptance') === this.legalVersion;
-      this.showScreen(accepted ? 'character' : 'legal');
+      if (!accepted) {
+        this.showScreen('legal');
+      } else {
+        routeAfterLegal();
+      }
     });
+    document.getElementById('openLeaderboardBtn')?.addEventListener('click', () => {
+      this.fetchLeaderboard();
+      this.showScreen('leaderboard');
+    });
+    document.getElementById('leaderboardBackBtn')?.addEventListener('click', () => this.showScreen('home'));
     document.getElementById('acceptLegalBtn')?.addEventListener('click', () => {
       const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
       const terms = document.getElementById('termsAccept') as HTMLInputElement;
       if (!privacy.checked || !terms.checked) return;
       localStorage.setItem('subsea_legal_acceptance', this.legalVersion);
-      this.showScreen('character');
+      routeAfterLegal();
     });
+
+    const commitFirstLoginName = () => {
+      const raw = this.firstLoginNameInput?.value.trim().slice(0, 15) || '';
+      if (!raw) {
+        this.nameInputHint?.classList.remove('hidden');
+        this.firstLoginNameInput?.focus();
+        return;
+      }
+      this.nameInputHint?.classList.add('hidden');
+      localStorage.setItem('flappy_player_name', raw);
+      this.syncDiverBadge();
+      this.showScreen('character');
+    };
+    document.getElementById('saveProfileNameBtn')?.addEventListener('click', commitFirstLoginName);
+    this.firstLoginNameInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitFirstLoginName();
+      }
+    });
+    document.getElementById('nameBackBtn')?.addEventListener('click', () => this.showScreen('home'));
     const updateLegalButton = () => {
       const privacy = document.getElementById('privacyAccept') as HTMLInputElement;
       const terms = document.getElementById('termsAccept') as HTMLInputElement;
@@ -281,19 +364,66 @@ export class FlappyGame {
     this.bindEvents();
     this.fetchLeaderboard();
 
+    // Start pre-game BGM immediately on first user interaction
+    this.sound.setBgmMode('menu');
+    const unlockAudio = () => this.sound.unlock();
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    document.addEventListener('visibilitychange', () => {
+      this.sound.setPaused(document.hidden);
+    });
+
     // Start loop
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  private showScreen(screen: 'home' | 'legal' | 'character' | 'tutorial' | 'ready' | 'game'): void {
+  private initIntroSplash(): void {
+    if (!this.introSplash) return;
+    let closed = false;
+    const dismiss = () => {
+      if (closed || !this.introSplash) return;
+      closed = true;
+      this.sound.unlock();
+      this.introSplash.classList.add('fade-out');
+      window.setTimeout(() => {
+        this.introSplash?.classList.add('hidden');
+      }, 450);
+    };
+    this.introSplash.addEventListener('click', dismiss, { once: true });
+    window.setTimeout(dismiss, 2400);
+  }
+
+  private getSavedPlayerName(): string {
+    return (localStorage.getItem('flappy_player_name') || '').trim().slice(0, 15);
+  }
+
+  private syncDiverBadge(): void {
+    const savedName = this.getSavedPlayerName();
+    if (!this.homeDiverTag) return;
+    if (savedName) {
+      this.homeDiverTag.textContent = `🤿 Diver: ${savedName}`;
+      this.homeDiverTag.classList.remove('hidden');
+    } else {
+      this.homeDiverTag.classList.add('hidden');
+    }
+  }
+
+  private showScreen(screen: 'home' | 'legal' | 'name' | 'character' | 'tutorial' | 'ready' | 'leaderboard' | 'game'): void {
     this.homeScreen.classList.toggle('hidden', screen !== 'home');
     this.legalScreen.classList.toggle('hidden', screen !== 'legal');
+    this.playerNameScreen.classList.toggle('hidden', screen !== 'name');
     this.characterScreen.classList.toggle('hidden', screen !== 'character');
     this.tutorialScreen.classList.toggle('hidden', screen !== 'tutorial');
     this.readyScreen.classList.toggle('hidden', screen !== 'ready');
+    this.leaderboardScreen.classList.toggle('hidden', screen !== 'leaderboard');
     this.gameScreen.classList.toggle('hidden', screen !== 'game');
+    if (screen === 'name') {
+      this.nameInputHint?.classList.add('hidden');
+      window.setTimeout(() => this.firstLoginNameInput?.focus(), 60);
+    }
     if (screen !== 'game') {
       this.adManager.setGameplayActive(false);
+      this.sound.setBgmMode('menu');
     }
   }
 
@@ -306,7 +436,7 @@ export class FlappyGame {
   private initEntities(): void {
     this.fish = {
       x: 90,
-      y: this.canvas.height / 2 - 20,
+      y: this.viewH / 2 - 20,
       radius: 14,
       width: 38,
       height: 28,
@@ -325,11 +455,11 @@ export class FlappyGame {
   private initBackgroundBubbles(): void {
     this.bubbles = [];
     for (let i = 0; i < 24; i++) {
-      const baseX = Math.random() * this.canvas.width;
+      const baseX = Math.random() * this.viewW;
       this.bubbles.push({
         baseX: baseX,
         x: baseX,
-        y: Math.random() * this.canvas.height,
+        y: Math.random() * this.viewH,
         radius: Math.random() * 4 + 1.5,
         speed: Math.random() * 0.8 + 0.5,
         wobbleSpeed: Math.random() * 0.04 + 0.02,
@@ -359,7 +489,7 @@ export class FlappyGame {
     // Keyboard controls
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
-        if (document.activeElement === this.playerNameInput) return;
+        if (document.activeElement?.tagName === 'INPUT') return;
         e.preventDefault();
         handleAction();
       }
@@ -389,7 +519,9 @@ export class FlappyGame {
           this.reviveStatusEl.classList.remove('hidden');
         }
 
+        this.sound.setPaused(true);
         const rewarded = await this.adManager.showRewardedForRevive();
+        this.sound.setPaused(false);
         this.revivePending = false;
 
         if (rewarded && this.state === 'GAMEOVER' && !this.hasRevivedThisRun) {
@@ -425,25 +557,17 @@ export class FlappyGame {
         this.infoModal!.classList.add('hidden');
       });
     }
-
-    // Save player name
-    if (this.saveNameBtn && this.playerNameInput) {
-      this.saveNameBtn.addEventListener('click', () => {
-        const val = this.playerNameInput!.value.trim();
-        if (val) {
-          localStorage.setItem('flappy_player_name', val);
-          this.submitScoreToBackend(this.score);
-        }
-      });
-    }
   }
 
   /** User input action (swim or start) */
   private onAction(): void {
+    this.sound.unlock();
     if (this.state === 'READY') {
       this.state = 'PLAYING';
       this.readyOverlay.classList.add('hidden');
       this.adManager.setGameplayActive(true);
+      this.sound.setLevelIntensity(this.level);
+      this.sound.setBgmMode('play');
       this.swim();
     } else if (this.state === 'PLAYING') {
       this.swim();
@@ -472,11 +596,11 @@ export class FlappyGame {
     const minHeight = 50;
     const gap = this.getLevelTuning().gap;
     const groundHeight = 65;
-    const maxTop = this.canvas.height - groundHeight - gap - minHeight;
+    const maxTop = this.viewH - groundHeight - gap - minHeight;
     const topHeight = Math.floor(Math.random() * (maxTop - minHeight + 1)) + minHeight;
 
     this.pipes.push({
-      x: this.canvas.width + 10,
+      x: this.viewW + 10,
       topHeight: topHeight,
       bottomY: topHeight + gap,
       width: 58,
@@ -495,11 +619,11 @@ export class FlappyGame {
     for (const b of this.bubbles) {
       b.y -= b.speed * speedMult;
       b.baseX -= currentDrift;
-      if (b.baseX < -15) b.baseX += this.canvas.width + 30;
+      if (b.baseX < -15) b.baseX += this.viewW + 30;
       b.x = b.baseX + Math.sin(this.frameCount * b.wobbleSpeed) * b.wobbleDistance;
       if (b.y < -10) {
-        b.y = this.canvas.height + 10;
-        b.baseX = Math.random() * this.canvas.width;
+        b.y = this.viewH + 10;
+        b.baseX = Math.random() * this.viewW;
       }
     }
 
@@ -516,7 +640,7 @@ export class FlappyGame {
 
     // Gentle hovering in READY state
     if (this.state === 'READY') {
-      this.fish.y = this.canvas.height / 2 - 20 + Math.sin(this.frameCount * 0.08) * 8;
+      this.fish.y = this.viewH / 2 - 20 + Math.sin(this.frameCount * 0.08) * 8;
       this.fish.rotation = 0;
       this.swimPhase += 0.16;
       this.fish.finAngle = Math.sin(this.swimPhase) * 0.3;
@@ -526,7 +650,7 @@ export class FlappyGame {
     if (this.state === 'GAMEOVER') {
       if (this.shakeTimer > 0) this.shakeTimer--;
       // Fish sinks to seabed on death
-      if (this.fish.y < this.canvas.height - 65 - this.fish.height / 2) {
+      if (this.fish.y < this.viewH - 65 - this.fish.height / 2) {
         this.fish.velocity += this.fish.gravity * 1.4;
         this.fish.y += this.fish.velocity;
         this.fish.rotation = Math.min(Math.PI / 2, this.fish.rotation + 0.1);
@@ -537,6 +661,7 @@ export class FlappyGame {
     // --- PLAYING STATE ---
     if (this.invulnTimer > 0) this.invulnTimer--;
     if (this.levelUpBannerTimer > 0) this.levelUpBannerTimer--;
+    if (this.evolutionFlashTimer > 0) this.evolutionFlashTimer--;
 
     // Apply gravity
     this.fish.velocity += this.fish.gravity;
@@ -556,7 +681,7 @@ export class FlappyGame {
 
     // Update and check pipes
     const pipeSpeed = tuning.pipeSpeed;
-    const groundLevel = this.canvas.height - 65;
+    const groundLevel = this.viewH - 65;
 
     // Check boundary collisions
     if (this.fish.y - this.fish.radius <= 0) {
@@ -593,7 +718,10 @@ export class FlappyGame {
           const theme = this.getLevelTheme();
           this.levelUpBannerTimer = 115;
           this.levelUpText = `LEVEL ${this.level} · ${theme.name}`;
+          this.evolutionFlashTimer = 45;
           if (this.gameLevelChip) this.gameLevelChip.textContent = `LEVEL ${this.level}`;
+          this.sound.setLevelIntensity(this.level);
+          this.sound.playLevelUp();
           for (let k = 0; k < 14; k++) {
             this.swimParticles.push({
               x: this.fish.x + (Math.random() - 0.5) * 32,
@@ -649,6 +777,7 @@ export class FlappyGame {
     this.state = 'GAMEOVER';
     this.shakeTimer = 16;
     this.adManager.setGameplayActive(false);
+    this.sound.setBgmMode('menu');
     this.sound.playHit();
     setTimeout(() => this.sound.playGameOver(), 150);
 
@@ -667,8 +796,9 @@ export class FlappyGame {
 
     this.gameOverOverlay.classList.remove('hidden');
 
-    // Show frequency-capped Interstitial Ad after Game Over transition
-    void this.adManager.handleGameOver();
+    // Show frequency-capped Interstitial Ad after Game Over transition (pause BGM while ad displays)
+    this.sound.setPaused(true);
+    void this.adManager.handleGameOver().finally(() => this.sound.setPaused(false));
 
     // Submit score to backend
     this.submitScoreToBackend(this.score);
@@ -682,7 +812,7 @@ export class FlappyGame {
     this.shakeTimer = 0;
 
     // Restore player at safe vertical center and clear immediate overlapping pipes
-    this.fish.y = this.canvas.height * 0.45;
+    this.fish.y = this.viewH * 0.45;
     this.fish.velocity = 0;
     this.fish.rotation = 0;
     this.pipes = this.pipes.filter((p) => p.x + p.width < this.fish.x - 40 || p.x > this.fish.x + 80);
@@ -690,6 +820,8 @@ export class FlappyGame {
     this.gameOverOverlay.classList.add('hidden');
     this.state = 'PLAYING';
     this.adManager.setGameplayActive(true);
+    this.sound.setLevelIntensity(this.level);
+    this.sound.setBgmMode('play');
     this.swim();
   }
 
@@ -702,9 +834,12 @@ export class FlappyGame {
     this.invulnTimer = 0;
     this.revivePending = false;
     this.levelUpBannerTimer = 0;
+    this.evolutionFlashTimer = 0;
     this.levelUpText = '';
     if (this.gameLevelChip) this.gameLevelChip.textContent = 'LEVEL 1';
     this.adManager.setGameplayActive(false);
+    this.sound.setLevelIntensity(1);
+    this.sound.setBgmMode('menu');
     this.initEntities();
     this.readyOverlay.classList.remove('hidden');
     this.gameOverOverlay.classList.add('hidden');
@@ -715,6 +850,7 @@ export class FlappyGame {
   private draw(): void {
     const ctx = this.ctx;
     const theme = this.getLevelTheme();
+    ctx.setTransform(this.renderScale, 0, 0, this.renderScale, 0, 0);
     ctx.save();
 
     // Camera shake effect on crash
@@ -725,25 +861,13 @@ export class FlappyGame {
     }
 
     // 1. Level-themed ocean background gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, this.viewH);
     bgGrad.addColorStop(0, theme.bgStops[0]);
     bgGrad.addColorStop(0.3, theme.bgStops[1]);
     bgGrad.addColorStop(0.7, theme.bgStops[2]);
     bgGrad.addColorStop(1, theme.bgStops[3]);
     ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    // Level artwork changes every 5 gates (then follows the larger ranges supplied).
-    const artIndex = LEVEL_ART_ASSETS.findIndex(({ maxLevel }) => this.level <= maxLevel);
-    const art = this.levelArtImages[artIndex < 0 ? this.levelArtImages.length - 1 : artIndex];
-    if (art?.complete && art.naturalWidth > 0) {
-      const scale = Math.max(this.canvas.width / art.naturalWidth, this.canvas.height / art.naturalHeight);
-      const drawWidth = art.naturalWidth * scale;
-      const drawHeight = art.naturalHeight * scale;
-      ctx.drawImage(art, (this.canvas.width - drawWidth) / 2, (this.canvas.height - drawHeight) / 2, drawWidth, drawHeight);
-      ctx.fillStyle = 'rgba(0, 12, 28, 0.16)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
+    ctx.fillRect(0, 0, this.viewW, this.viewH);
 
     // 2. Dynamic theme light rays / bioluminescent spores / current streaks
     this.drawAmbientThemeEffects(theme);
@@ -787,15 +911,15 @@ export class FlappyGame {
       for (let i = 0; i < 4; i++) {
         const sway = Math.sin(this.frameCount * raySpeed + i * 1.6) * 28;
         const baseX = 55 + i * 95 + sway;
-        const rayGrad = ctx.createLinearGradient(baseX, 0, baseX - 40, this.canvas.height * 0.72);
+        const rayGrad = ctx.createLinearGradient(baseX, 0, baseX - 40, this.viewH * 0.72);
         rayGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
         rayGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = rayGrad;
         ctx.beginPath();
         ctx.moveTo(baseX - 18, 0);
         ctx.lineTo(baseX + 26, 0);
-        ctx.lineTo(baseX - 14, this.canvas.height * 0.72);
-        ctx.lineTo(baseX - 78, this.canvas.height * 0.72);
+        ctx.lineTo(baseX - 14, this.viewH * 0.72);
+        ctx.lineTo(baseX - 78, this.viewH * 0.72);
         ctx.closePath();
         ctx.fill();
       }
@@ -803,9 +927,9 @@ export class FlappyGame {
       const glowColor = theme.ambientMode === 'embers' ? '251, 146, 60' : '56, 189, 248';
       const speedY = theme.ambientMode === 'embers' ? 1.5 : 0.9;
       for (let i = 0; i < 14; i++) {
-        const seedX = (i * 73 + 29) % this.canvas.width;
-        const yPos = this.canvas.height - ((this.frameCount * speedY + i * 47) % (this.canvas.height - 40));
-        const xPos = (seedX + Math.sin(this.frameCount * 0.04 + i) * 18 + this.canvas.width) % this.canvas.width;
+        const seedX = (i * 73 + 29) % this.viewW;
+        const yPos = this.viewH - ((this.frameCount * speedY + i * 47) % (this.viewH - 40));
+        const xPos = (seedX + Math.sin(this.frameCount * 0.04 + i) * 18 + this.viewW) % this.viewW;
         const pulse = 0.35 + 0.45 * Math.sin(this.frameCount * 0.08 + i * 1.3);
         const r = 2 + (i % 3);
         ctx.fillStyle = `rgba(${glowColor}, ${pulse})`;
@@ -823,8 +947,8 @@ export class FlappyGame {
       ctx.lineWidth = 1.6;
       for (let i = 0; i < streakCount; i++) {
         const len = 28 + (i % 4) * 14;
-        const y = 70 + ((i * 83) % (this.canvas.height - 160));
-        const x = this.canvas.width - ((this.frameCount * streakSpeed + i * 97) % (this.canvas.width + len + 40));
+        const y = 70 + ((i * 83) % (this.viewH - 160));
+        const x = this.viewW - ((this.frameCount * streakSpeed + i * 97) % (this.viewW + len + 40));
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x + len, y);
@@ -842,11 +966,11 @@ export class FlappyGame {
     ctx.fillStyle = theme.waveColor;
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    for (let x = 0; x <= this.canvas.width; x += 20) {
+    for (let x = 0; x <= this.viewW; x += 20) {
       const y = 8 + Math.sin((x + this.frameCount * rippleSpeed) * 0.05) * 4;
       ctx.lineTo(x, y);
     }
-    ctx.lineTo(this.canvas.width, 0);
+    ctx.lineTo(this.viewW, 0);
     ctx.closePath();
     ctx.fill();
   }
@@ -916,7 +1040,7 @@ export class FlappyGame {
       this.drawPipeTicks(p.x + 4, 10, p.topHeight - lipHeight - 10, theme.tickColor);
 
       // --- Bottom Pipe ---
-      const bottomHeight = this.canvas.height - p.bottomY;
+      const bottomHeight = this.viewH - p.bottomY;
       const btmGrad = ctx.createLinearGradient(p.x, 0, p.x + p.width, 0);
       btmGrad.addColorStop(0, theme.pipeStops[0]);
       btmGrad.addColorStop(0.35, theme.pipeStops[1]);
@@ -993,53 +1117,65 @@ export class FlappyGame {
     ctx.restore();
   }
 
-  /** Draw realistic 3D Manta Ray sprite with smooth fin & tail swimming wave */
+  /** Single-pass crisp HiDPI sprite renderer with smooth organic swim glide & ocean contrast. */
+  private drawCrispCreatureSprite(
+    ctx: CanvasRenderingContext2D,
+    sprite: HTMLImageElement,
+    drawW: number,
+    anchorRatioX: number,
+    flexAmpX: number,
+    flexAmpY: number,
+    wobbleAmp: number,
+    rimColor: string
+  ): void {
+    const drawH = (sprite.naturalHeight / sprite.naturalWidth) * drawW;
+    const phase = this.swimPhase * 0.9 + this.fish.finAngle * 0.85;
+    const scaleX = 1 + Math.sin(phase) * flexAmpX;
+    const scaleY = 1 - Math.sin(phase) * flexAmpY;
+    const bobY = Math.sin(phase * 0.75) * 1.4;
+    const pitchWobble = Math.sin(phase - 0.4) * wobbleAmp;
+
+    ctx.save();
+    ctx.rotate(pitchWobble);
+    ctx.translate(0, bobY);
+    ctx.scale(scaleX, scaleY);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if ('filter' in ctx) {
+      ctx.filter = 'brightness(1.16) contrast(1.12) saturate(1.16)';
+    }
+    ctx.shadowColor = rimColor;
+    ctx.shadowBlur = 9;
+    ctx.drawImage(sprite, -drawW * anchorRatioX, -drawH * 0.5, drawW, drawH);
+    ctx.restore();
+  }
+
+  /** Shared golden-cyan evolution aura pulse rendered on glider tier upgrades. */
+  private drawEvolutionFlash(ctx: CanvasRenderingContext2D): void {
+    if (this.evolutionFlashTimer <= 0) return;
+    const p = this.evolutionFlashTimer / 45;
+    ctx.save();
+    ctx.strokeStyle = `rgba(253, 224, 71, ${p})`;
+    ctx.fillStyle = `rgba(56, 189, 248, ${p * 0.28})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26 + (1 - p) * 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Draw level-evolved Manta Ray sprite with crisp HD clarity & smooth wing-glide motion */
   private drawMantaSkin(ctx: CanvasRenderingContext2D): void {
-    if (this.mantaSpriteReady && this.mantaSprite.naturalWidth > 0) {
-      const srcW = this.mantaSprite.naturalWidth;
-      const srcH = this.mantaSprite.naturalHeight;
-      const drawW = 74;
-      const drawH = (srcH / srcW) * drawW;
+    const tierIdx = Math.min(Math.max(0, this.level - 1), this.mantaTierSprites.length - 1);
+    const tierSprite = this.mantaTierSprites[tierIdx];
+    const sprite = tierSprite?.complete && tierSprite.naturalWidth > 0
+      ? tierSprite
+      : (this.mantaSpriteReady && this.mantaSprite.naturalWidth > 0 ? this.mantaSprite : null);
 
-      // Anchor torso near the player's collision center (shifted slightly left so whip tail trails behind)
-      const originX = -drawW * 0.56;
-      const phase = this.swimPhase * 0.85 + this.fish.finAngle * 1.1;
-      const wingFlex = 1 + Math.sin(phase) * 0.085;
-      const originY = -drawH * 0.5 * wingFlex;
-
-      const slices = 24;
-      const sliceSrcW = srcW / slices;
-      const sliceDstW = drawW / slices;
-
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
-      for (let i = 0; i < slices; i++) {
-        const u = i / (slices - 1); // 0 = whip tail & left wingtip, 1 = head & cephalic horns
-        // Tail & outer wing flex gracefully while the head/eye stays anchored and sharp
-        const flexWeight = Math.pow(Math.max(0, 1 - u * 1.18), 1.4);
-        const waveY = Math.sin(phase - u * 4.4) * 3.6 * flexWeight;
-
-        const sx = i * sliceSrcW;
-        const sw = i === slices - 1 ? srcW - sx : sliceSrcW + 0.5;
-        const dx = originX + i * sliceDstW;
-        const dw = i === slices - 1 ? sliceDstW : sliceDstW + 0.6;
-
-        ctx.drawImage(
-          this.mantaSprite,
-          sx,
-          0,
-          sw,
-          srcH,
-          dx,
-          originY + waveY,
-          dw,
-          drawH * wingFlex
-        );
-      }
-
-      ctx.restore();
+    if (sprite) {
+      this.drawEvolutionFlash(ctx);
+      this.drawCrispCreatureSprite(ctx, sprite, 104, 0.62, 0.025, 0.08, 0.045, 'rgba(125, 211, 252, 0.65)');
       return;
     }
 
@@ -1060,9 +1196,28 @@ export class FlappyGame {
     this.drawSkinEye(ctx, 10, -3);
   }
 
-  /** Draw Yellow-Orange Explorer Submarine skin with periscope & propeller */
+  /** Draw level-by-level evolved Submarine sprite with engine pulse & evolution aura */
   private drawSubmarineSkin(ctx: CanvasRenderingContext2D): void {
-    // Spinning rear propeller
+    const tierIdx = Math.min(Math.max(0, this.level - 1), this.submarineTierSprites.length - 1);
+    const sprite = this.submarineTierSprites[tierIdx];
+    if (sprite?.complete && sprite.naturalWidth > 0) {
+      const drawW = tierIdx === 0 ? 64 : tierIdx === 1 ? 68 : 78;
+      const drawH = (sprite.naturalHeight / sprite.naturalWidth) * drawW;
+      const thrustPulse = 1 + Math.sin(this.swimPhase * 1.4) * 0.035;
+      const bobY = Math.sin(this.swimPhase * 0.9) * 1.1;
+
+      this.drawEvolutionFlash(ctx);
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.scale(thrustPulse, 1 / Math.sqrt(thrustPulse));
+      ctx.drawImage(sprite, -drawW * 0.52, -drawH * 0.5 + bobY, drawW, drawH);
+      ctx.restore();
+      return;
+    }
+
+    // Immediate vector fallback before sprite decode completes
     ctx.save();
     ctx.translate(-20, 1);
     const bladeScale = Math.cos(this.frameCount * 0.55);
@@ -1076,24 +1231,6 @@ export class FlappyGame {
     ctx.stroke();
     ctx.restore();
 
-    // Conning tower & periscope on top
-    ctx.fillStyle = '#ea580c';
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.roundRect(-5, -16, 12, 7, 3);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(2, -16);
-    ctx.lineTo(2, -21);
-    ctx.lineTo(7, -21);
-    ctx.stroke();
-
-    // Main yellow-amber hull
     const hullGrad = ctx.createLinearGradient(0, -12, 0, 13);
     hullGrad.addColorStop(0, '#fde047');
     hullGrad.addColorStop(0.55, '#f59e0b');
@@ -1106,32 +1243,33 @@ export class FlappyGame {
     ctx.fill();
     ctx.stroke();
 
-    // Red/teal racing stripe along hull
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.moveTo(-16, 4);
-    ctx.lineTo(16, 4);
-    ctx.stroke();
-
-    // Cyan cockpit porthole
     ctx.fillStyle = '#38bdf8';
     ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(6, -1, 5.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-
-    ctx.fillStyle = '#e0f2fe';
-    ctx.beginPath();
-    ctx.arc(4.5, -2.5, 1.8, 0, Math.PI * 2);
-    ctx.fill();
   }
 
-  /** Draw Fearless Shark skin with tall dorsal fin, gill slits & teeth */
+  /** Draw Fearless Shark (Level 1) & level-evolved armored Shark sprites (Level 2+) */
   private drawSharkSkin(ctx: CanvasRenderingContext2D): void {
-    // Tall pointed dorsal fin
+    if (this.level >= 2) {
+      const tierIdx = Math.min(this.level - 2, this.sharkTierSprites.length - 1);
+      const sprite = this.sharkTierSprites[tierIdx];
+      if (sprite?.complete && sprite.naturalWidth > 0) {
+        this.drawEvolutionFlash(ctx);
+        this.drawCrispCreatureSprite(ctx, sprite, 108, 0.56, 0.038, 0.024, 0.042, 'rgba(56, 189, 248, 0.62)');
+        return;
+      }
+    }
+
+    // Scale Level 1 base Shark cleanly to match Submarine & evolved sprite presence
+    ctx.save();
+    ctx.scale(1.45, 1.45);
+    ctx.shadowColor = 'rgba(125, 211, 252, 0.55)';
+    ctx.shadowBlur = 7;
+
+    // Tall pointed dorsal fin (Level 1 base Shark)
     ctx.fillStyle = '#475569';
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 1.8;
@@ -1217,6 +1355,7 @@ export class FlappyGame {
     ctx.fill();
 
     this.drawSkinEye(ctx, 11, -3.5);
+    ctx.restore();
   }
 
   /** Shared crisp cartoon eye for creature skins */
@@ -1240,16 +1379,16 @@ export class FlappyGame {
   /** Draw themed ocean floor & speed-responsive seaweed */
   private drawSeabed(theme: LevelTheme): void {
     const ctx = this.ctx;
-    const floorY = this.canvas.height - 65;
+    const floorY = this.viewH - 65;
     const swaySpeed = 0.05 * (1 + (this.level - 1) * 0.18);
 
     // Ocean floor ground silhouette
     ctx.fillStyle = theme.floorBg;
-    ctx.fillRect(0, floorY, this.canvas.width, 65);
+    ctx.fillRect(0, floorY, this.viewW, 65);
 
     // Floor top edge rim
     ctx.fillStyle = theme.floorRim;
-    ctx.fillRect(0, floorY, this.canvas.width, 6);
+    ctx.fillRect(0, floorY, this.viewW, 6);
 
     // Coral / Seaweed swaying with current strength
     ctx.fillStyle = theme.weedColor;
@@ -1272,17 +1411,17 @@ export class FlappyGame {
 
     ctx.fillStyle = 'rgba(5, 20, 42, 0.78)';
     ctx.beginPath();
-    ctx.roundRect(this.canvas.width / 2 - 86, 14, 172, 62, 12);
+    ctx.roundRect(this.viewW / 2 - 86, 14, 172, 62, 12);
     ctx.fill();
     ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = theme.accentColor;
-    ctx.fillText(`LEVEL ${this.level} · ${theme.name}`, this.canvas.width / 2, 32);
+    ctx.fillText(`LEVEL ${this.level} · ${theme.name}`, this.viewW / 2, 32);
     ctx.font = '900 26px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(this.score.toString(), this.canvas.width / 2, 60);
+    ctx.fillText(this.score.toString(), this.viewW / 2, 60);
     ctx.font = '700 10px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#c7e8ff';
-    ctx.fillText(`${this.score % this.obstaclesPerLevel}/${this.obstaclesPerLevel} TO NEXT LEVEL`, this.canvas.width / 2, 88);
+    ctx.fillText(`${this.score % this.obstaclesPerLevel}/${this.obstaclesPerLevel} TO NEXT LEVEL`, this.viewW / 2, 88);
     ctx.restore();
   }
 
@@ -1300,16 +1439,21 @@ export class FlappyGame {
     ctx.strokeStyle = theme.accentColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(this.canvas.width / 2 - 125, 102 + yOffset, 250, 42, 21);
+    ctx.roundRect(this.viewW / 2 - 125, 102 + yOffset, 250, 42, 21);
     ctx.fill();
     ctx.stroke();
 
     ctx.font = '800 13px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = theme.accentColor;
-    ctx.fillText(`⚡ ${this.levelUpText}`, this.canvas.width / 2, 122 + yOffset);
+    ctx.fillText(`⚡ ${this.levelUpText}`, this.viewW / 2, 122 + yOffset);
     ctx.font = '700 10px "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('SPEED BOOST ACTIVE!', this.canvas.width / 2, 136 + yOffset);
+    const subMsg = this.fish.skin === 'SUBMARINE'
+      ? 'SUBMARINE EVOLVED · SPEED BOOST!'
+      : this.fish.skin === 'SHARK'
+        ? 'SHARK EVOLVED · SPEED BOOST!'
+        : 'MANTA RAY EVOLVED · SPEED BOOST!';
+    ctx.fillText(subMsg, this.viewW / 2, 136 + yOffset);
     ctx.restore();
   }
 
@@ -1326,17 +1470,12 @@ export class FlappyGame {
     if (stored) {
       this.bestScore = parseInt(stored, 10) || 0;
     }
-    const savedName = localStorage.getItem('flappy_player_name');
-    if (savedName && this.playerNameInput) {
-      this.playerNameInput.value = savedName;
-    }
   }
 
-  /** Submit score to Python Backend */
+  /** Submit score to Python Backend using the saved first-login diver name */
   private async submitScoreToBackend(score: number): Promise<void> {
     try {
-      const playerName = (this.playerNameInput ? this.playerNameInput.value.trim() : '') ||
-                         localStorage.getItem('flappy_player_name') || 'Player';
+      const playerName = this.getSavedPlayerName() || 'Player';
       await fetch('/api/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

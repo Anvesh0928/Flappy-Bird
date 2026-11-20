@@ -7,14 +7,45 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Animated Game Intro Splash (Shown every app launch) -->
+  <div id="introSplash" class="intro-splash" role="banner" aria-label="Ocean Rush Intro">
+    <div class="intro-bubbles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="intro-core">
+      <div class="intro-ring"></div>
+      <div class="intro-emblem">🌊</div>
+      <p class="intro-kicker">WELCOME TO</p>
+      <h1 class="intro-title">OCEAN RUSH</h1>
+      <p class="intro-subtitle">UNDERWATER ADVENTURE</p>
+      <div class="intro-loader"><span></span></div>
+      <p class="intro-tap-hint">TAP ANYWHERE TO CONTINUE</p>
+    </div>
+  </div>
+
   <div class="app-layout">
     <section id="homeScreen" class="menu-screen onboarding-screen">
-      <div class="menu-brand">🌊</div><p class="eyebrow">OCEAN ARCADE</p>
-      <h1>OCEAN RUSH<br/>UNDERWATER ADVENTURE</h1>
+      <div class="menu-brand">🌊</div><p class="eyebrow">UNDERWATER ADVENTURE</p>
+      <h1>OCEAN<br/>RUSH</h1>
       <p class="menu-copy">A tiny ocean. Endless adventure. Glide through the deep, dodge the gates and master every level.</p>
+      <p id="homeDiverTag" class="diver-badge hidden"></p>
       <div class="intro-highlights"><span>🐠 3 CREATURES</span><span>♾️ ENDLESS LEVELS</span><span>🌊 OCEAN ADVENTURE</span></div>
       <button id="startGameBtn" class="menu-primary">LET'S DIVE IN</button>
+      <button id="openLeaderboardBtn" class="menu-secondary">🏆 HALL OF FAME</button>
       <p class="screen-footnote">Your underwater adventure awaits</p>
+    </section>
+
+    <section id="playerNameScreen" class="menu-screen hidden onboarding-screen">
+      <div class="menu-brand">🤿</div>
+      <p class="eyebrow">DIVER PROFILE</p>
+      <h1>ENTER YOUR<br/>NAME</h1>
+      <p class="menu-copy">Enter your name once for the Hall of Fame. It is saved automatically so you won't be asked again.</p>
+      <div class="first-name-form">
+        <input type="text" id="firstLoginNameInput" class="first-name-input" placeholder="e.g. Anvesh" maxlength="15" autocomplete="nickname" />
+        <p id="nameInputHint" class="name-input-hint hidden">Please enter your name (1–15 characters).</p>
+      </div>
+      <button id="saveProfileNameBtn" class="menu-primary">SAVE &amp; CONTINUE</button>
+      <button id="nameBackBtn" class="menu-secondary">BACK</button>
     </section>
 
     <section id="legalScreen" class="menu-screen hidden onboarding-screen legal-screen">
@@ -101,11 +132,6 @@
             </div>
           </div>
 
-          <div class="player-input-box">
-            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15" />
-            <button id="saveNameBtn" class="save-name-btn">Save</button>
-          </div>
-
           <button id="reviveBtn" class="overlay-revive-btn">📺 REVIVE (CONTINUE)</button>
           <p id="reviveStatus" class="revive-status hidden"></p>
           <button id="playAgainBtn" class="overlay-action-btn">RESTART</button>
@@ -126,18 +152,18 @@
       </footer>
     </div>
 
-    <!-- Leaderboard Sidebar (Connected to Python REST API) -->
-    <aside class="leaderboard-panel">
-      <div class="leaderboard-header">
-        <h3>🏆 Hall of Fame</h3>
-        <span class="badge">Live API</span>
-      </div>
-      <p class="panel-subtitle">Top scores saved on Python server</p>
-      <ul id="leaderboardList" class="leaderboard-list">
+    <!-- Dedicated Hall of Fame Page (Live Leaderboard) -->
+    <section id="leaderboardScreen" class="menu-screen hidden onboarding-screen leaderboard-screen">
+      <div class="menu-brand">🏆</div>
+      <p class="eyebrow">OCEAN CHAMPIONS</p>
+      <h1>HALL OF FAME</h1>
+      <p class="menu-copy">Top scores across Ocean Rush dives.</p>
+      <ul id="leaderboardList" class="leaderboard-list leaderboard-screen-list">
         <!-- Dynamically populated from /api/scores -->
         <li class="loading-item">Loading scores...</li>
       </ul>
-    </aside>
+      <button id="leaderboardBackBtn" class="menu-secondary">BACK</button>
+    </section>
   </div>
 
   <!-- How It Works Modal -->
@@ -175,6 +201,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/game.js"></script>
+  <script type="module" src="js/game.js?v=20261111f"></script>
 </body>
 </html>
